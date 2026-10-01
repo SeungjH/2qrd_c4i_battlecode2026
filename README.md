@@ -1,6 +1,16 @@
 # Explorer v2 — C++ 휴리스틱 봇
 
-업로드 파일: `heuristic_dragon_v2.zip`. ZIP 최상위에는 `main.cpp`, `bot.toml` 두 파일만 들어 있습니다. 웹사이트에서 언어 C++를 선택합니다.
+대회에는 아래 스크립트로 만든 `dist/submission-<커밋번호>.zip`을 업로드합니다. ZIP 최상위에는 `main.cpp`, `bot.toml` 두 파일만 들어 있습니다. 웹사이트에서 언어 C++를 선택합니다.
+
+## 저장소와 제출본 관리
+
+```sh
+git clone https://github.com/SeungjH/2qrd_c4i_battlecode2026.git
+cd 2qrd_c4i_battlecode2026
+./package_submission.sh
+```
+
+`package_submission.sh`는 현재 커밋의 코드와 설정으로 ZIP을 만듭니다. 코드나 설정에 커밋하지 않은 변경이 있으면 먼저 커밋하도록 안내합니다. 이후 수정할 때는 커밋·푸시한 뒤 스크립트를 실행하면 GitHub와 동일한 코드를 제출할 수 있습니다. 생성된 ZIP은 `dist/`에 보관하며 Git에는 포함하지 않습니다.
 
 ## 이번 변경
 
