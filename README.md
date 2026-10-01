@@ -1,6 +1,8 @@
-# Explorer v5 — C++ 휴리스틱 봇
+# Explorer v6 — C++ 휴리스틱 봇
 
 드래곤마다 같은 C++20 프로그램이 독립 실행됩니다. 각 드래곤은 자기 시야와 기억, 소나로 판단합니다. 학습 모델과 스프린트는 사용하지 않습니다.
+
+v6은 기존 `dea7d82`의 리플레이 반영판을 다시 표기한 버전입니다. v5 기준 커밋은 `8f61232`입니다. 버전 표기 외의 행동 로직은 바뀌지 않았습니다.
 
 ## 제출
 
@@ -44,7 +46,7 @@
 
 ## 리플레이 표시
 
-`INDICATOR v5` 뒤에 이유가 나옵니다. 주요 값은 `EXPLORE`, `NAVIGATE`, `PORTAL_SCOUT`, `PORTAL_ROUTE`, `LAST_RESORT_PORTAL`, `SCOUT_SPLIT_2`, `REVERSE_RESCUE`, `RESCUE_SPLIT_2`, `COURIER_ESCAPE`, `HUNT_BLOCK`, `FAVORABLE_HEAD_TRADE`, `DONOR_SEEK`, `DONOR_APPROACH`, `DONATE_CONFIRMED`, `DONATE_NEAR`, `RECEIVE_PEARLS`입니다.
+`INDICATOR v6` 뒤에 이유가 나옵니다. 주요 값은 `EXPLORE`, `NAVIGATE`, `PORTAL_SCOUT`, `PORTAL_ROUTE`, `LAST_RESORT_PORTAL`, `SCOUT_SPLIT_2`, `REVERSE_RESCUE`, `RESCUE_SPLIT_2`, `COURIER_ESCAPE`, `HUNT_BLOCK`, `FAVORABLE_HEAD_TRADE`, `DONOR_SEEK`, `DONOR_APPROACH`, `DONATE_CONFIRMED`, `DONATE_NEAR`, `RECEIVE_PEARLS`입니다.
 
 ## 검증
 
@@ -55,25 +57,25 @@
 공식 엔진의 통로 인계 검사는 `unswbc`가 설치된 Python으로 실행합니다.
 
 ```sh
-clang++ -std=c++20 -O2 main.cpp -o /tmp/explorer-v5
-python3 tests/engine_trap.py /tmp/explorer-v5
-python3 tests/engine_reverse.py /tmp/explorer-v5
+clang++ -std=c++20 -O2 main.cpp -o /tmp/explorer-v6
+python3 tests/engine_trap.py /tmp/explorer-v6
+python3 tests/engine_reverse.py /tmp/explorer-v6
 ```
 
-### 리플레이 반영 후 로컬 비교 — 2026-10-01
+### v6 리플레이 반영 후 로컬 비교 — 2026-10-01
 
-이전 v5 커밋과 공식 엔진의 일반 실행으로 네 맵, 시드 101·202·303·404, 양 진영을 비교했습니다. 현재 v5가 **19승 13패**였습니다.
+v5 커밋과 공식 엔진의 일반 실행으로 네 맵, 시드 101·202·303·404, 양 진영을 비교했습니다. v6가 **19승 13패**였습니다.
 
-| 맵 | 현재 v5 승 / 경기 |
+| 맵 | v6 승 / 경기 |
 |---|---:|
 | Portals | 5 / 8 |
 | Slithery Fight | 5 / 8 |
 | Default | 5 / 8 |
 | Schooltime | 4 / 8 |
 
-Slithery Fight 시드 303에서는 양 진영 모두 현재 v5가 이겼습니다. 한 경기에서 현재 v5의 최장 개체가 23칸까지 성장했고, 400라운드 이후 합류 희생이 35회 관측됐습니다. Portals 시드 303에서는 양 진영 모두 현재 v5가 이겼고, 경고·출구 경로 소나가 주변 아군에게 전달됐습니다. 이는 제공된 상대 팀과의 재대결 결과는 아닙니다.
+Slithery Fight 시드 303에서는 양 진영 모두 v6가 이겼습니다. 한 경기에서 v6의 최장 개체가 23칸까지 성장했고, 400라운드 이후 합류 희생이 35회 관측됐습니다. Portals 시드 303에서는 양 진영 모두 v6가 이겼고, 경고·출구 경로 소나가 주변 아군에게 전달됐습니다. 이는 제공된 상대 팀과의 재대결 결과는 아닙니다.
 
-Portals 시드 303을 공식 WASM 샌드박스에서도 현재 v5 A 대 이전 v5 B로 실행해 500라운드 승리를 확인했습니다. 현재 v5의 CPU 포인트는 중앙값 약 **5.1M**, 최대 **5.6M / 제한 100M**이었습니다.
+Portals 시드 303을 공식 WASM 샌드박스에서도 v6 A 대 v5 B로 실행해 500라운드 승리를 확인했습니다. v6의 CPU 포인트는 중앙값 약 **5.1M**, 최대 **5.6M / 제한 100M**이었습니다.
 
 ### v5 로컬 비교 결과 — 2026-10-01
 
