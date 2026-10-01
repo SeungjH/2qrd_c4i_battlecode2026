@@ -10,21 +10,21 @@
 #include <vector>
 using namespace std;
 
-// Explorer v4. Each process controls exactly one dragon.
+// Explorer v5. Each process controls exactly one dragon.
 // MOVE has one direction. Routine splits release two segments; emergency
 // reversal leaves the old head with two and sends the long rear away.
 namespace policy {
 constexpr int ExpansionEnd = 250;
 constexpr int SupportStart = 350;
 constexpr int SplitCooldown = 3;
-constexpr int PortalLimit = 2;
+constexpr int PortalRetryDelay = 12;
 }
 constexpr int DR[4]={-1,0,1,0}, DC[4]={0,1,0,-1};
 constexpr char DIRS[]="NESW";
 struct Pos { int x=-1,y=-1; bool operator==(const Pos&) const=default; };
 struct Tile { Pos p; int pearl=0, countdown=-1, id=-1; char team='.'; int dir=0; bool head=false; };
 struct Portal { bool horizontal; Pos p; bool operator==(const Portal&) const=default; };
-struct Move { int dir=-1,to=-1,area=0,exits=0; bool portal=false,frontier=false; double score=-1e20,risk=0; };
+struct Move { int dir=-1,to=-1,area=0,exits=0,portalId=-1; bool portal=false,frontier=false,uncertain=false; double score=-1e20,risk=0; };
 static array<Tile,49> tiles;
 static string he[8][7],ve[7][8];
 static map<int,vector<Portal>> portalPairs;
@@ -35,7 +35,10 @@ static int bearing=-1,hand=1,turnsAlive=0,lastSplit=-100,portalUses=0;
 static char team;
 // Only observed terrain is remembered; foreign body occupancy is read fresh each turn.
 static array<array<int,4>,4096> terrain;
+static array<array<int,4>,4096> portalAt;
+static vector<pair<int,int>> knownPortalEdges;
 static array<int,4096> pearlSeen;
+static map<int,int> portalLastUsed;
 static deque<int> recentHeads;
 static int goal=-1, goalSince=0, navigateUntil=-1, lastNewTurn=0;
 static bool navigating=false;
@@ -166,21 +169,32 @@ void remember(int portalId,bool horizontal,Pos p) {
     Portal e{horizontal,p}; auto &pair=portalPairs[portalId];
     if(find(pair.begin(),pair.end(),e)==pair.end() && pair.size()<2) pair.push_back(e);
 }
-// Physical transition, independent of occupancy. Portal exit must be in current vision.
-int nextTile(int at,int d,bool respectQuota=true) {
-    const string &e=edge(at,d);
-    if(e=="w") return -1;
-    Pos p=tiles[at].p;
-    if(e==".") return local({wrap(p.x+DC[d],width),wrap(p.y+DR[d],height)});
-    if(respectQuota && portalUses>=policy::PortalLimit) return -1;
-    auto it=portalPairs.find(stoi(e));
+int portalDestination(int from,int d,int portalId) {
+    auto it=portalPairs.find(portalId);
     if(it==portalPairs.end() || it->second.size()!=2) return -1;
+    Pos p=decodePos(from);
     Portal here{d%2==0,{wrap(p.x+(d==1),width),wrap(p.y+(d==2),height)}};
     const auto &pair=it->second;
     if(!(here==pair[0]) && !(here==pair[1])) return -1;
     Pos exit=pair[here==pair[0]?1:0].p;
     exit.x=wrap(exit.x-(d==3),width); exit.y=wrap(exit.y-(d==0),height);
-    return local(exit);
+    return code(exit);
+}
+bool portalReady(int portalId) {
+    auto it=portalLastUsed.find(portalId);
+    return it==portalLastUsed.end() || roundNo-it->second>=policy::PortalRetryDelay;
+}
+// Physical transition, independent of occupancy. The local destination is
+// unavailable when its paired exit lies outside the vision square.
+int nextTile(int at,int d,bool respectCooldown=true) {
+    const string &e=edge(at,d);
+    if(e=="w") return -1;
+    Pos p=tiles[at].p;
+    if(e==".") return local({wrap(p.x+DC[d],width),wrap(p.y+DR[d],height)});
+    int portalId=stoi(e);
+    if(respectCooldown && !portalReady(portalId)) return -1;
+    int destination=portalDestination(code(p),d,portalId);
+    return destination<0?-1:local(decodePos(destination));
 }
 
 void syncBody() {
@@ -268,6 +282,7 @@ double separation(int target) {
 
 Move evaluate(int d,int to) {
     Move m; m.dir=d; m.to=to; m.portal=edge(24,d)!=".";
+    if(m.portal) m.portalId=stoi(edge(24,d));
     Region r=region(to,afterMove(to));
     m.area=r.area; m.exits=r.exits; m.frontier=r.frontier;
     int nextLength=length+tiles[to].pearl;
@@ -278,6 +293,18 @@ Move evaluate(int d,int to) {
         nextLength>=8?min(nextLength+6,24):min(nextLength+2,14);
     if(!r.frontier && r.area<needed) s-=12*(needed-r.area);
     if(nextLength>=8 && !r.frontier && r.exits<2) s-=protectedLong()?45:20;
+    // Cheap scouts can pressure a visibly larger enemy without entering a
+    // one-step head collision. The actual trade is handled separately.
+    if(length<=3 && units>=5 && roundNo<350 && m.risk<18 &&
+       (r.frontier || r.area>=8)) {
+        for(int j=0;j<49;j++) if(tiles[j].head && tiles[j].team!=team) {
+            int observed=0;
+            for(const Tile &t:tiles) if(t.id==tiles[j].id) observed++;
+            int before=distance(tiles[24].p,tiles[j].p);
+            int after=distance(tiles[to].p,tiles[j].p);
+            if(observed>=6 && after>=2 && after<before) s+=12;
+        }
+    }
     if(d==bearing) s+=8;
     if(d==facing) s+=3;
     if(turnsAlive<3 && length==2 && d==bearing) s+=5;
@@ -299,8 +326,41 @@ Move evaluate(int d,int to) {
     for(int j=0;j<49;j++) if(j!=to && r.dist[j]>0 && tiles[j].pearl)
         food=max(food,12.0/(r.dist[j]+1));
     s+=food;
-    if(m.portal) s-=4;
+    if(m.portal) {
+        s-=4;
+        if(!recentIncome(12) && visits[code(tiles[to].p)]==0) s+=12;
+    }
     m.score=s;
+    return m;
+}
+
+Move distantPortal(int d) {
+    Move m; m.dir=d; m.portal=true; m.uncertain=true;
+    m.portalId=stoi(edge(24,d));
+    int target=portalDestination(code(tiles[24].p),d,m.portalId);
+    bool known=target>=0;
+    set<int> nearbyPortals;
+    for(const auto &row:he) for(const string &e:row)
+        if(e!="." && e!="w") nearbyPortals.insert(stoi(e));
+    for(const auto &row:ve) for(const string &e:row)
+        if(e!="." && e!="w") nearbyPortals.insert(stoi(e));
+    if(protectedLong() || !portalReady(m.portalId) ||
+       (!known && (roundNo>=350 || length>3 || turnsAlive<3 ||
+           nearbyPortals.size()<2)) ||
+       (known && length>6)) return m;
+    // An unobserved exit may be occupied. Only scouts take that deliberate risk.
+    m.frontier=true; m.exits=1; m.area=14;
+    int here=code(tiles[24].p);
+    bool hungry=!recentIncome(12);
+    m.score=(known?17.0:13.0)+(hungry?17.0:0.0);
+    if(target>=0) {
+        m.score+=visits[target]==0?9.0:-min(visits[target],8)*3.0;
+        if(lastSeen[target]>=0 && roundNo-lastSeen[target]<8) m.score-=8;
+        if(pearlSeen[target]>=0 && roundNo-pearlSeen[target]<=20) m.score+=8;
+    }
+    if(length>3) m.score-=8;
+    if(roundNo>=300) m.score-=7;
+    if(avoided(here,d)) m.score-=5000;
     return m;
 }
 
@@ -310,8 +370,13 @@ vector<Move> legalMoves() {
     array<int,4> order{bearing,(bearing+hand+4)%4,(bearing-hand+4)%4,(bearing+2)%4};
     for(int d:order) {
         if(protectedLong() && edge(24,d)!=".") continue;
+        if(edge(24,d)=="w") continue;
         int to=nextTile(24,d);
         if(to>=0 && tiles[to].id<0) out.push_back(evaluate(d,to));
+        else if(to<0 && edge(24,d)!="." && portalReady(stoi(edge(24,d)))) {
+            Move m=distantPortal(d);
+            if(m.score>-1e19) out.push_back(m);
+        }
     }
     stable_sort(out.begin(),out.end(),[](const Move&a,const Move&b){return a.score>b.score;});
     return out;
@@ -324,10 +389,20 @@ void rememberTerrain() {
         pearlSeen[k]=tiles[j].pearl?roundNo:-1;
         for(int d=0;d<4;d++) {
             const string &e=edge(j,d);
-            // Portal policy is unchanged; global routes use verified ordinary edges only.
-            terrain[k][d]=e=="."?code({wrap(tiles[j].p.x+DC[d],width),
-                wrap(tiles[j].p.y+DR[d],height)}):-1;
+            if(e==".") {
+                terrain[k][d]=code({wrap(tiles[j].p.x+DC[d],width),
+                    wrap(tiles[j].p.y+DR[d],height)});
+            } else if(e=="w") terrain[k][d]=-1;
+            else {
+                if(portalAt[k][d]<0) knownPortalEdges.push_back({k,d});
+                portalAt[k][d]=stoi(e);
+                terrain[k][d]=-3; // Observed entry, paired exit not known yet.
+            }
         }
+    }
+    for(auto [k,d]:knownPortalEdges) {
+        int destination=portalDestination(k,d,portalAt[k][d]);
+        terrain[k][d]=destination>=0?destination:-3;
     }
 }
 
@@ -356,7 +431,8 @@ bool guideOutOfLoop(vector<Move>& moves) {
     blocked[here]=false;
     array<bool,4> safe{};
     for(const auto &m:moves)
-        safe[m.dir]=!m.portal && m.risk<18 && m.exits>0 &&
+        safe[m.dir]=(!m.uncertain || portalDestination(here,m.dir,m.portalId)>=0) &&
+            m.risk<18 && m.exits>0 &&
             (m.frontier || m.area>=
                 (protectedLong()?min(length+6,32):
                  length>=8?min(length+6,24):min(length+2,14)));
@@ -367,7 +443,8 @@ bool guideOutOfLoop(vector<Move>& moves) {
     while(qhead<qtail) {
         int at=queue[qhead++];
         for(int d=0;d<4;d++) {
-            if((at==here && !safe[d]) || avoided(at,d)) continue;
+            if((at==here && !safe[d]) || avoided(at,d) ||
+               (protectedLong() && portalAt[at][d]>=0)) continue;
             int to=terrain[at][d];
             if(to<0 || blocked[to] || dist[to]>=0) continue;
             dist[to]=dist[at]+1;
@@ -382,7 +459,7 @@ bool guideOutOfLoop(vector<Move>& moves) {
             int k=queue[n];
             if(dist[k]<4) continue;
             int exits=0,unknown=0;
-            for(int to:terrain[k]) { if(to>=0) exits++; if(to==-2) unknown++; }
+            for(int to:terrain[k]) { if(to>=0) exits++; if(to==-2 || to==-3) unknown++; }
             // Reject known blind alleys as exploration destinations.
             if(!unknown && exits<2) continue;
             double score=(visits[k]==0?50:0)+unknown*18.0-
@@ -406,6 +483,9 @@ int terrainDegree(int k) {
 }
 bool safeMove(const Move &m) {
     if(protectedLong() && m.portal) return false;
+    if(m.uncertain) return m.portal && m.score>-1e19 &&
+        portalDestination(code(tiles[24].p),m.dir,m.portalId)>=0 &&
+        portalReady(m.portalId) && !avoided(code(tiles[24].p),m.dir);
     int needed=protectedLong()?min(length+6,32):
         length>=8?min(length+6,24):min(length+2,14);
     return m.risk<18 && m.exits>0 && !avoided(code(tiles[24].p),m.dir) &&
@@ -429,7 +509,8 @@ int routeDirection(const vector<Move>& moves,int destination) {
     while(begin<end) {
         int at=q[begin++];
         for(int d=0;d<4;d++) {
-            if((at==here && !safe[d]) || avoided(at,d)) continue;
+            if((at==here && !safe[d]) || avoided(at,d) ||
+               (protectedLong() && portalAt[at][d]>=0)) continue;
             int to=terrain[at][d];
             if(to<0 || blocked[to] || first[to]>=0) continue;
             first[to]=at==here?d:first[at];
@@ -532,7 +613,7 @@ bool betterRank(int owner,int len) { return len>length || (len==length && owner<
 bool approachAlly(vector<Move>& moves,int owner) {
     int h=visibleHead(owner); if(h<0) return false;
     double best=-1e20; int d=-1;
-    for(const auto &m:moves) if(safeMove(m)) {
+    for(const auto &m:moves) if(m.to>=0 && safeMove(m)) {
         double score=-distance(tiles[m.to].p,tiles[h].p)*12.0 + m.score*0.08;
         if(score>best) { best=score; d=m.dir; }
     }
@@ -660,7 +741,7 @@ bool coordinateHunt(vector<Move>& moves) {
         if(a>=0 && tiles[a].id<0) { exitCount++; if(routes.dist[a]>=0) dist=min(dist,routes.dist[a]+1); }
     }
     if(dist<huntDistance || exitCount<huntExits) { huntProgress=roundNo; huntDistance=dist; huntExits=exitCount; }
-    if(roundNo-huntSince>=8 || roundNo-huntProgress>=4 || routes.dist[target]<0 || routes.dist[target]>4) {
+    if(roundNo-huntSince>=12 || roundNo-huntProgress>=6 || routes.dist[target]<0 || routes.dist[target]>6) {
         endHunt(); return false;
     }
     int d=routeDirection(moves,code(tiles[target].p));
@@ -668,7 +749,7 @@ bool coordinateHunt(vector<Move>& moves) {
     role=4; return true;
 }
 int favorableHeadTrade() {
-    if(roundNo>=300 || length!=2 || units<12 || roundNo<=courierUntil ||
+    if(roundNo>=350 || length!=2 || units<5 || roundNo<=courierUntil ||
        roundNo<=reverseChildUntil || role!=0) return -1;
     for(int d=0;d<4;d++) {
         if(edge(24,d)!=".") continue;
@@ -758,21 +839,45 @@ bool reverseRescue(const vector<Move>& moves) {
     return false;
 }
 
+int emergencyPortalDirection() {
+    if(protectedLong()) return -1;
+    int best=-1,bestRank=-1000;
+    for(int d=0;d<4;d++) {
+        const string &e=edge(24,d);
+        if(e=="." || e=="w") continue;
+        int to=nextTile(24,d,false);
+        if(to>=0 && tiles[to].id>=0) continue;
+        int portalId=stoi(e);
+        int destination=portalDestination(code(tiles[24].p),d,portalId);
+        int rank=(portalReady(portalId)?20:0)+(destination>=0?10:0);
+        if(destination>=0) rank-=min(visits[destination],10)*2;
+        if(rank>bestRank) { bestRank=rank; best=d; }
+    }
+    return best;
+}
+
 bool routineSplit(const vector<Move>& moves) {
     if(length<4 || units>=unitLimit-4 ||
        roundNo-lastSplit<policy::SplitCooldown || moves.empty()) return false;
-    // Collectors may keep making 2+2 scouts when the team is small. Long
-    // contenders stop routine splitting before the final growth phase.
-    if(roundNo>=450 || (roundNo>=policy::ExpansionEnd && length!=4)) return false;
-    if(roundNo>=400 && (units>=6 || !recentIncome(16))) return false;
-    if(roundNo>=300 && units>=12) return false;
+    // Productive small collectors can keep scouting in the middle game;
+    // length-seven and larger contenders preserve their growth.
+    if(roundNo>=450 || (roundNo>=policy::ExpansionEnd && length>6)) return false;
+    if(roundNo>=400 && (length!=4 || units>=6 || !recentIncome(16))) return false;
     if(roundNo>=policy::ExpansionEnd && !recentIncome(16)) return false;
+    int cap=min(unitLimit,max(4,width*height/20));
+    if(roundNo>=300 && units>=min(cap,max(12,width*height/30))) return false;
+    if(roundNo>=policy::ExpansionEnd && length>4) {
+        int income=0;
+        for(int at:foodRounds) income+=roundNo-at<=32;
+        int visiblePearls=0;
+        for(const Tile &t:tiles) visiblePearls+=t.pearl;
+        if(income<2 && visiblePearls<2) return false;
+    }
     if(length==4) {
         int visiblePearls=0;
         for(const Tile &t:tiles) visiblePearls+=t.pearl;
         if(!recentIncome(12) && visiblePearls<2) return false;
     }
-    int cap=min(unitLimit,max(4,width*height/20));
     if(units>=cap || headRisk(24)>=18) return false;
     const Move &m=moves.front();
     if(m.exits==0 || m.risk>=18 || (!m.frontier && m.area<8)) return false;
@@ -796,6 +901,11 @@ bool routineSplit(const vector<Move>& moves) {
 
 void recordMove(const Move &m) {
     updateCorridor(m);
+    if(m.portal) {
+        portalUses++;
+        portalLastUsed[m.portalId]=roundNo;
+    }
+    if(m.to<0) { bearing=m.dir; body.clear(); return; }
     int oldForward=nextTile(24,bearing);
     // A sustained obstacle, explored strip, or nearby ally gives the next heading.
     if(m.dir!=bearing && (oldForward<0 || tiles[oldForward].id>=0 ||
@@ -804,7 +914,6 @@ void recordMove(const Move &m) {
     if(!tiles[m.to].pearl) body.pop_back();
     else foodRounds.push_back(roundNo);
     while(!foodRounds.empty() && roundNo-foodRounds.front()>32) foodRounds.pop_front();
-    if(m.portal) portalUses++;
 }
 
 bool readTurn() {
@@ -858,6 +967,7 @@ int main() {
     if(!(cin>>tag>>team>>tag>>width>>height>>tag>>unitLimit)) return 0;
     lastVisit.fill(-10000); lastSeen.fill(-1); localAt.fill(-1); pearlSeen.fill(-1);
     for(auto &row:terrain) row.fill(-2);
+    for(auto &row:portalAt) row.fill(-1);
     while(readTurn()) {
         hasOutgoing=false; role=0;
         if(turnsAlive==0 && length==2 && courierEntry<0 && terrainDegree(code(tiles[24].p))<=2) courierUntil=roundNo+16;
@@ -876,7 +986,7 @@ int main() {
         // A two-segment child releases its tail for a trapped parent. If eating would
         // retain the blocking tail, take a non-food move; otherwise sacrifice ONLY the child.
         if(!donated && trappedAllyAtTail()) {
-            auto it=find_if(moves.begin(),moves.end(),[](const Move&m){return !tiles[m.to].pearl;});
+            auto it=find_if(moves.begin(),moves.end(),[](const Move&m){return m.to>=0 && !tiles[m.to].pearl;});
             if(it!=moves.end()) { chosen=*it; reason="RELEASE_TAIL"; }
             else {
                 int tail=local(body.back());
@@ -888,16 +998,25 @@ int main() {
             bool canSplit=length>=4 && units<unitLimit;
             if(canSplit && reverseRescue(moves)) {
                 splitSize=length-2; reason="REVERSE_RESCUE";
+            } else if(moves.empty() && emergencyPortalDirection()>=0) {
+                chosen.dir=emergencyPortalDirection(); chosen.portal=true;
+                chosen.portalId=stoi(edge(24,chosen.dir)); reason="LAST_RESORT_PORTAL";
             } else if(canSplit && (moves.empty() || (moves.front().exits==0 && cutCanReleaseParent()))) {
                 splitSize=2; reason=cutCanReleaseParent()?"RESCUE_SPLIT_2":"LAST_RESORT_SPLIT_2";
             } else if(!courier && role==0 && routineSplit(moves)) {
                 splitSize=2; reason="SCOUT_SPLIT_2";
-            } else if(!moves.empty()) chosen=moves.front();
+            } else if(!moves.empty()) {
+                chosen=moves.front();
+                if(chosen.uncertain && reason=="EXPLORE")
+                    reason=portalDestination(code(tiles[24].p),chosen.dir,chosen.portalId)>=0?
+                        "PORTAL_ROUTE":"PORTAL_SCOUT";
+            }
             else {
                 // Unknown exits are used only when every verified move is impossible.
                 for(int d=0;d<4;d++) if(!protectedLong() && edge(24,d)!="." &&
-                    edge(24,d)!="w" && portalUses<policy::PortalLimit) {
-                    chosen.dir=d; portalUses++; reason="LAST_RESORT_PORTAL"; body.clear(); break;
+                    edge(24,d)!="w") {
+                    chosen.dir=d; chosen.portal=true; chosen.portalId=stoi(edge(24,d));
+                    reason="LAST_RESORT_PORTAL"; break;
                 }
                 if(chosen.dir<0) {
                     // Never take an ally's head down with us when escape is impossible.
@@ -921,10 +1040,10 @@ int main() {
             body.resize(length-splitSize); lastSplit=roundNo;
         } else {
             cout<<"MOVE "<<DIRS[chosen.dir]<<'\n';
-            if(chosen.to>=0) recordMove(chosen);
+            if(chosen.to>=0 || chosen.portal) recordMove(chosen);
         }
         emitRadio();
-        cout<<"INDICATOR v4 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
+        cout<<"INDICATOR v5 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
         turnsAlive++;
     }
     return 0;

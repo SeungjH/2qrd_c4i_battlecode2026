@@ -7,6 +7,8 @@ void setup(int len=3,int r=100) {
     width=height=20; id=10; team='A'; length=len; roundNo=r; units=2; unitLimit=64; facing=bearing=1;
     localAt.fill(-1); lastSeen.fill(-1); lastVisit.fill(-10000); pearlSeen.fill(-1);
     for(auto &v:terrain) v.fill(-2);
+    for(auto &v:portalAt) v.fill(-1);
+    portalPairs.clear(); knownPortalEdges.clear(); portalLastUsed.clear();
     for(int j=0;j<49;j++) { tiles[j]=Tile{}; tiles[j].p={7+j%7,7+j/7}; localAt[code(tiles[j].p)]=j; }
     for(auto &r:he) for(auto &e:r) e=".";
     for(auto &r:ve) for(auto &e:r) e=".";
@@ -86,10 +88,10 @@ int main(int argc,char**argv) {
     } else if(test=="hunt_timeout") {
         setup();ally(2,{{9,8},{8,8}},100);
         int enemy=local({12,10});tiles[enemy].id=99;tiles[enemy].team='B';tiles[enemy].head=true;
-        huntEnemy=99;huntSince=92;huntProgress=99;
+        huntEnemy=99;huntSince=88;huntProgress=99;
         received={{HUNT,2,100,99}};
         auto m=legalMoves();assert(!coordinateHunt(m));assert(huntEnemy<0 && huntCooldown==108);
-        cout<<"hunting stops at eight rounds passed\n";
+        cout<<"hunting stops after twelve rounds passed\n";
     } else if(test=="split_radio") {
         setup(4);corridorEntry=code({8,10});corridorDir=1;
         ve[3][4]="w";he[3][3]="w";he[4][3]="w";rememberTerrain();
@@ -121,6 +123,9 @@ int main(int argc,char**argv) {
         foodRounds.push_back(419);assert(routineSplit(moves));
         setup(8,420);assert(protectedLong());
         auto rich=legalMoves();assert(!routineSplit(rich));
+        setup(5,320);foodRounds={300,319};
+        auto productive=legalMoves();assert(routineSplit(productive));
+        foodRounds={319};assert(!routineSplit(productive));
         cout<<"early 2+2 scouts, income-gated late collectors and protected long dragon passed\n";
     } else if(test=="productive_loop") {
         setup(3,100);turnsAlive=40;visits[code(tiles[24].p)]=1;
@@ -130,15 +135,40 @@ int main(int argc,char**argv) {
         auto m=legalMoves();assert(!guideOutOfLoop(m) && !navigating);
         cout<<"productive local loop is retained passed\n";
     } else if(test=="head_trade") {
-        setup(2,100);units=12;
+        setup(2,100);units=5;
         for(Pos p:vector<Pos>{{11,10},{11,9},{12,9},{13,9},{13,8},{12,8}}) {
             int j=local(p);assert(j>=0);tiles[j].id=90;tiles[j].team='B';
             tiles[j].head=p==Pos{11,10};
         }
         assert(favorableHeadTrade()==1);
-        units=11;assert(favorableHeadTrade()<0);
-        units=12;roundNo=350;assert(favorableHeadTrade()<0);
+        units=4;assert(favorableHeadTrade()<0);
+        units=5;roundNo=350;assert(favorableHeadTrade()<0);
         cout<<"only surplus short scouts may trade with a visibly longer enemy passed\n";
+    } else if(test=="portal_route") {
+        setup(2,100);turnsAlive=20;
+        ve[3][4]="7";remember(7,false,{11,10});rememberTerrain();
+        auto sparse=legalMoves();
+        assert(find_if(sparse.begin(),sparse.end(),[](const Move&m){return m.portal;})==sparse.end());
+        he[0][0]="8";remember(8,true,{7,7});rememberTerrain();
+        auto first=legalMoves();
+        auto unknown=find_if(first.begin(),first.end(),[](const Move&m){return m.portal;});
+        assert(unknown!=first.end() && unknown->uncertain && unknown->to<0);
+        assert(terrain[code({10,10})][1]==-3);
+        remember(7,false,{2,2});rememberTerrain();
+        assert(portalDestination(code({10,10}),1,7)==code({2,2}));
+        assert(portalDestination(code({11,10}),3,7)==code({1,2}));
+        assert(terrain[code({10,10})][1]==code({2,2}));
+        auto known=legalMoves();
+        auto route=find_if(known.begin(),known.end(),[](const Move&m){return m.portal;});
+        assert(route!=known.end() && safeMove(*route));
+        portalUses=5;recordMove(*route);
+        assert(portalUses==6 && !portalReady(7) && body.empty());
+        auto cooling=legalMoves();
+        assert(find_if(cooling.begin(),cooling.end(),[](const Move&m){return m.portal;})==cooling.end());
+        assert(emergencyPortalDirection()==1);
+        roundNo+=policy::PortalRetryDelay;assert(portalReady(7));
+        roundNo=400;length=8;assert(protectedLong() && emergencyPortalDirection()<0);
+        cout<<"unknown portal scouting, remote paired route, cooldown and no hard quota passed\n";
     } else if(test=="early_support") {
         setup(2,360);
         ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8}},360);
