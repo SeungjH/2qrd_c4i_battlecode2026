@@ -98,5 +98,56 @@ int main(int argc,char**argv) {
         assert(((outgoing.payload>>12)&4095)==unsigned(corridorEntry));
         assert((outgoing.payload>>26)&1);
         cout<<"trapped parent sends tail-child destination and permanent wall warning passed\n";
+    } else if(test=="reverse_rescue") {
+        setup(3,410);
+        for(auto &t:tiles) if(t.id==id) { t.id=-1; t.head=false; }
+        body={{10,10},{10,11},{11,11},{12,11},{12,10},{12,9},
+              {11,9},{10,9},{9,9},{9,10}};
+        length=int(body.size());
+        for(int n=0;n<length;n++) {
+            int j=local(body[n]);assert(j>=0);
+            tiles[j].id=id;tiles[j].team=team;tiles[j].head=n==0;
+        }
+        ve[3][4]="w"; // The only non-body direction from the old head is a wall.
+        auto moves=legalMoves();
+        assert(moves.empty() && !cutCanReleaseParent() && reverseRescue(moves));
+        assert(length-2==8 && local(body.back())>=0);
+        cout<<"trapped long parent leaves old head 2 and reverses 8 safe tail segments passed\n";
+    } else if(test=="roles_and_income") {
+        setup(4,100);turnsAlive=30;foodRounds.push_back(99);
+        auto moves=legalMoves();assert(routineSplit(moves));
+        roundNo=320;foodRounds.push_back(319);assert(routineSplit(moves));
+        roundNo=420;assert(!routineSplit(moves));
+        foodRounds.push_back(419);assert(routineSplit(moves));
+        setup(8,420);assert(protectedLong());
+        auto rich=legalMoves();assert(!routineSplit(rich));
+        cout<<"early 2+2 scouts, income-gated late collectors and protected long dragon passed\n";
+    } else if(test=="productive_loop") {
+        setup(3,100);turnsAlive=40;visits[code(tiles[24].p)]=1;
+        vector<Pos> cycle{{10,9},{11,9},{11,10},{10,10}};
+        for(int j=0;j<16;j++) recentHeads.push_back(code(cycle[j%4]));
+        foodRounds.push_back(99);
+        auto m=legalMoves();assert(!guideOutOfLoop(m) && !navigating);
+        cout<<"productive local loop is retained passed\n";
+    } else if(test=="head_trade") {
+        setup(2,100);units=12;
+        for(Pos p:vector<Pos>{{11,10},{11,9},{12,9},{13,9},{13,8},{12,8}}) {
+            int j=local(p);assert(j>=0);tiles[j].id=90;tiles[j].team='B';
+            tiles[j].head=p==Pos{11,10};
+        }
+        assert(favorableHeadTrade()==1);
+        units=11;assert(favorableHeadTrade()<0);
+        units=12;roundNo=350;assert(favorableHeadTrade()<0);
+        cout<<"only surplus short scouts may trade with a visibly longer enemy passed\n";
+    } else if(test=="early_support") {
+        setup(2,360);
+        ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8}},360);
+        auto moves=legalMoves();Move chosen;string reason;
+        assert(collectionPlan(id,2,8).safe);
+        assert(!coordinateDonation(moves,chosen,reason));
+        assert(outgoing.type==OFFER && donationTarget==2);
+        roundNo=349;donationTarget=-1;hasOutgoing=false;
+        assert(!coordinateDonation(moves,chosen,reason));
+        cout<<"small donors can approach length-eight receiver from round 350 passed\n";
     } else return 2;
 }

@@ -44,7 +44,9 @@ class Client:
         actions=[s for s in out if s.startswith(('MOVE ','SPLIT '))]
         assert len(actions)==1
         if actions[0].startswith('MOVE '):assert len(actions[0].split()[1])==1,actions
-        else:assert actions[0]=='SPLIT 2',actions
+        else:
+            split_size=int(actions[0].split()[1])
+            assert 2<=split_size<=int(block.split('LENGTH ')[1].split('\n')[0])-2,actions
         return actions[0],out
     def close(self): self.p.stdin.close();self.p.wait(timeout=2)
 
@@ -66,7 +68,7 @@ assert len(seen)>=150,(len(seen),turns)
 print(f'empty exploration: {len(seen)} unique cells / 200 moves, {turns} turns')
 
 # Every early split keeps all but exactly two segments on the parent.
-a,_=once([(10,10),(9,10),(8,10),(7,10),(6,10),(5,10),(4,10)])
+a,_=once([(10,10),(9,10),(8,10),(8,9),(7,9),(7,10),(7,11)])
 assert a=='SPLIT 2',a
 print('routine length-7 split: child 2, parent retains 5')
 
