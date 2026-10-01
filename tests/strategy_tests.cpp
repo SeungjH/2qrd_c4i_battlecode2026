@@ -9,6 +9,7 @@ void setup(int len=3,int r=100) {
     for(auto &v:terrain) v.fill(-2);
     for(auto &v:portalAt) v.fill(-1);
     portalPairs.clear(); knownPortalEdges.clear(); portalLastUsed.clear();
+    sharedPortalExit.clear();portalRouteLastSent.clear();warnings.clear();allies.clear();received.clear();
     for(int j=0;j<49;j++) { tiles[j]=Tile{}; tiles[j].p={7+j%7,7+j/7}; localAt[code(tiles[j].p)]=j; }
     for(auto &r:he) for(auto &e:r) e=".";
     for(auto &r:ve) for(auto &e:r) e=".";
@@ -78,15 +79,27 @@ int main(int argc,char**argv) {
         assert(receiveDonor==20 && role==2 && outgoing.type==ACCEPT && int(outgoing.payload&65535)==20);
         assert(donationTarget<0);
         cout<<"receiver reserves one donor, never simultaneously donates passed\n";
+    } else if(test=="late_donation") {
+        setup(2,410);
+        ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8},{9,9},{8,9}},410);
+        assert(collectionPlan(id,2,10).safe);
+        auto m=legalMoves();Move c;string reason;
+        for(int r=410;r<=413;r++) {
+            roundNo=r;allies[2].stamp=r;hasOutgoing=false;c=Move{};
+            bool done=coordinateDonation(m,c,reason);
+            if(r<413) assert(!done && c.dir<0);
+            else assert(done && reason=="DONATE_NEAR" && c.dir==3);
+        }
+        cout<<"nearby short donor consolidates after repeated unanswered offers passed\n";
      } else if(test=="hunt_join") {
-        setup();ally(2,{{10,8},{9,8}},100);
+        setup();units=4;ally(2,{{10,8},{9,8}},100);
         int enemy=local({12,9});tiles[enemy].id=99;tiles[enemy].team='B';tiles[enemy].head=true;
-        received={{HUNT,2,100,99}};
+        received.clear(); // Visibility suffices; no received HUNT claim is needed.
         auto m=legalMoves();assert(coordinateHunt(m));assert(role==4 && outgoing.type==HUNT);
         assert(safeMove(m.front()));
-        cout<<"two visible allies agree on enemy and select safe blockade route passed\n";
+        cout<<"two visible allies coordinate without a sonar handshake passed\n";
     } else if(test=="hunt_timeout") {
-        setup();ally(2,{{9,8},{8,8}},100);
+        setup();units=4;ally(2,{{9,8},{8,8}},100);
         int enemy=local({12,10});tiles[enemy].id=99;tiles[enemy].team='B';tiles[enemy].head=true;
         huntEnemy=99;huntSince=88;huntProgress=99;
         received={{HUNT,2,100,99}};
@@ -169,6 +182,21 @@ int main(int argc,char**argv) {
         roundNo+=policy::PortalRetryDelay;assert(portalReady(7));
         roundNo=400;length=8;assert(protectedLong() && emergencyPortalDirection()<0);
         cout<<"unknown portal scouting, remote paired route, cooldown and no hard quota passed\n";
+    } else if(test=="trap_share") {
+        setup(2,100);turnsAlive=20;
+        ve[3][4]="7";remember(7,false,{11,10});rememberTerrain();
+        int entry=code({10,10}),exit=code({12,10}),key=entry*4+1;
+        for(int d=0;d<4;d++) { terrain[exit][d]=-1;portalAt[exit][d]=-1; }
+        terrain[exit][3]=-3;portalAt[exit][3]=7;
+        inbox={from(2,PORTAL_ROUTE_PACKET,unsigned(entry)|(1u<<12)|(unsigned(exit)<<14),100),
+               from(3,DANGER,unsigned(entry)|(1u<<12)|(1u<<14),100)};
+        receiveRadio();
+        assert(sharedPortalExit[key]==exit && knownPortalTrap(exit));
+        assert(avoided(entry,1) && warnings[key].permanent);
+        auto moves=legalMoves();
+        assert(find_if(moves.begin(),moves.end(),[](const Move&m){return m.portal;})==moves.end());
+        roundNo=400;assert(avoided(entry,1));
+        cout<<"shared portal exits and permanent trap warnings prevent re-entry passed\n";
     } else if(test=="early_support") {
         setup(2,360);
         ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8}},360);
