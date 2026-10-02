@@ -10,7 +10,7 @@
 #include <vector>
 using namespace std;
 
-// Explorer v12. Each process controls exactly one dragon.
+// Explorer v13. Each process controls exactly one dragon.
 // Only admitted late donors may MOVE two free steps. Routine splits release two segments; emergency
 // reversal leaves the old head with two and sends the long rear away.
 namespace policy {
@@ -1577,8 +1577,11 @@ bool cutCanReleaseParent() {
 bool reverseRescue(const vector<Move>& moves) {
     if(length<6 || units>=unitLimit || int(body.size())!=length ||
        body.back().x<0 || cutCanReleaseParent()) return false;
-    // A merely narrow but still open route is not a reason to shed two segments.
-    for(const Move &m:moves) if(m.sustainable && m.exits>0 && m.risk<18) return false;
+    // Keep a scoring dragon's length when an escape still exists. An adjacent
+    // ally or a two-step enemy forecast alone does not justify leaving it at 2.
+    // A reachable enemy head (risk 120) can still trigger the emergency reversal.
+    for(const Move &m:moves) if(m.sustainable && m.exits>0 &&
+        m.risk<(protectedLong()?120.0:18.0)) return false;
     bool ownWall=false;
     for(int d=0;d<4;d++) {
         int to=nextTile(24,d,false);
@@ -1996,7 +1999,7 @@ int main() {
             if(second>=0) {Move next;next.dir=second;next.to=secondTo;recordMove(next);reason="DONOR_SPRINT";}
         }
         emitRadio();
-        cout<<"INDICATOR v12 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" target="<<feedTargetId<<" queen="<<officialQueenId<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<" resource="<<resourceGoal<<" official="<<officialQueenId<<" queen_dead="<<officialQueenDeath<<" home="<<assemblyCenter<<" spawn="<<spawnHome<<" quiet="<<quietEndgame()<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
+        cout<<"INDICATOR v13 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" target="<<feedTargetId<<" queen="<<officialQueenId<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<" resource="<<resourceGoal<<" official="<<officialQueenId<<" queen_dead="<<officialQueenDeath<<" home="<<assemblyCenter<<" spawn="<<spawnHome<<" quiet="<<quietEndgame()<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
         turnsAlive++;
     }
     return 0;
