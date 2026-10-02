@@ -12,11 +12,13 @@ void setup(int len=3,int r=100) {
     sharedPortalExit.clear();portalRouteLastSent.clear();warnings.clear();allies.clear();received.clear();
     warningSequence=0;
     attackChildEnemy=-1;attackChildUntil=-1;attackSplitRadio=false;
-    queenReports.clear();resources.clear();reservedFood.clear();retiredUntil=-1;
+    assemblyCenter=-1;donorTravelOwner=-1;donorBestDistance=1000;donorProgress=-1;donorCooldown=-1;
+    officialQueenId=-1;officialQueenDeath=-1;servingDonor=-1;servingUntil=-1;previousEntry=-1;previousDirection=-1;queenBadEdges.clear();
+    allyReports.clear();resources.clear();reservedFood.clear();retiredUntil=-1;
     receiveConfirmed=false;receiveStarted=-1;receiveMeeting=-1;receivePearls.clear();
     spawnOneRound.fill(-100);harvestRound.fill(-100);harvestCount.fill(0);
     huntHeads.clear();huntEnemy=-1;huntCooldown=-1;foodRounds.clear();
-    queenId=-1;queenLength=0;queenStamp=-100;queenLastSent=-100;hasOutgoing=false;
+    feedTargetId=-1;feedTargetLength=0;feedTargetStamp=-100;queenLastSent=-100;hasOutgoing=false;
     corridorEntry=-1;courierUntil=-1;reverseChildUntil=-1;donationTarget=-1;receiveDonor=-1;
     for(int j=0;j<49;j++) { tiles[j]=Tile{}; tiles[j].p={7+j%7,7+j/7}; localAt[code(tiles[j].p)]=j; }
     for(auto &r:he) for(auto &e:r) e=".";
@@ -31,7 +33,7 @@ void ally(int owner,vector<Pos> b,int stamp=400) {
         tiles[j].dir=d;
     }
     allies[owner]={int(b.size()),stamp,0,b[0]};
-    rememberQueen(owner,int(b.size()),b[0],stamp);
+    rememberAllyReport(owner,int(b.size()),b[0],stamp);
 }
 unsigned long long from(int owner,int type,unsigned data,int stamp) {
     int saved=id;id=owner;auto raw=encodePacket({type,owner,stamp,data});id=saved;return raw;
@@ -48,11 +50,64 @@ int main(int argc,char**argv) {
         assert(safeMove(m.front()));
         cout<<"two laps of a four-cell loop choose a reachable destination outside the loop passed\n";
     } else if(test=="frontier_scout") {
-        setup();turnsAlive=10;visits.fill(0);visits[code(tiles[24].p)]=1;
+        setup();id=12;for(auto &t:tiles) if(t.id==10) t.id=id;turnsAlive=10;visits.fill(0);visits[code(tiles[24].p)]=1;
         for(const Tile &t:tiles) lastSeen[code(t.p)]=roundNo;
         auto moves=legalMoves();assert(guideOutOfLoop(moves));
         assert(navigating && goal>=0 && safeMove(moves.front()));
         cout<<"scout seeks an observation frontier before revisiting any head position passed\n";
+    } else if(test=="official_queen") {
+        setup(5,100);assert(routineSplit(legalMoves()));id=1;
+        for(auto &t:tiles) if(t.id==10) t.id=id;
+        rememberAllyReport(id,length,tiles[24].p,roundNo);
+        rememberAllyReport(77,20,{12,12},roundNo);
+        assert(feedTargetId==1 && feedTargetLength==5 && officialQueenId==1);
+        assert(protectedLong() && !routineSplit(legalMoves()) && !donationCandidate());
+        assert(favorableHeadTrade()<0);
+        auto queenMoves=legalMoves();turnsAlive=40;assert(!guideOutOfLoop(queenMoves));
+        ve[3][4]="7";rememberTerrain();
+        for(const auto &m:legalMoves()) assert(!m.portal);
+        setup(4,300);rememberAllyReport(0,3,{13,12},roundNo);
+        assert(feedTargetId==0 && feedTargetLength==3 && donationCandidate());
+        assert(eligibleDonor(10,4) && !eligibleDonor(1,2));
+        roundNo=341;rememberAllyReport(id,length,tiles[24].p,roundNo);
+        assert(!feedTargetFresh() && feedTargetId==-1); // Silence is not proof of queen death.
+        rememberAllyReport(0,2,{13,12},roundNo);
+        assert(feedTargetId==0 && feedTargetLength==2);
+        cout<<"fixed queen outranks larger collectors, never scouts portals or donates, and survives shrinkage passed\n";
+    } else if(test=="queen_lane") {
+        setup(2,420);ally(77,{{12,10},{12,11},{12,12},{13,12},{13,11},{13,10},{13,9},{13,8}},420);
+        assert(obstructsQueen(local({12,9})));
+        Move lane;lane.dir=0;lane.to=local({12,9});lane.area=20;lane.exits=2;
+        assert(!safeMove(lane));lane.to=local({11,9});assert(safeMove(lane));
+        cout<<"all route promotions respect the queen's next head tile passed\n";
+    } else if(test=="queen_hold") {
+        setup(8,420);rememberAllyReport(id,length,tiles[24].p,420);receiveDonor=20;receiveUntil=426;
+        rememberAllyReport(77,9,{12,10},420);assert(feedTargetId==id);
+        rememberAllyReport(88,12,{11,12},420);assert(feedTargetId==88);
+        receiveDonor=-1;roundNo=421;rememberAllyReport(88,2,{11,12},421);assert(feedTargetId==77);
+        cout<<"receiver finishes an active gift, while larger challengers and shrinkage still replace it passed\n";
+    } else if(test=="queen_handoff") {
+        setup(8,420);turnsAlive=0;
+        inbox={from(2,ESCAPE,unsigned(code(tiles[24].p))|(4095u<<12),420)};
+        rememberAllyReport(0,2,{13,13},420);
+        receiveRadio();assert(feedTargetId==0 && reverseChildUntil==422);
+        assert(courierEntry<0 && warnings.empty());
+        cout<<"reversed child preserves fixed queen identity without a phantom warning passed\n";
+    } else if(test=="donor_queue") {
+        setup(2,420);ally(77,{{12,10},{12,11},{12,12},{13,12},{13,11},{13,10},{13,9},{13,8}},420);
+        ally(20,{{11,10},{11,11}},420);assert(!donorHasTurn());
+        allies[20].len=7;assert(donorHasTurn()); // Too long to donate to this queen.
+        allies[20].len=2;
+        servingDonor=id;servingUntil=426;assert(donorHasTurn());
+        auto moves=legalMoves();Move chosen;string reason;
+        servingDonor=20;assert(!coordinateDonation(moves,chosen,reason));
+        assert(role==6 && reason=="DONOR_WAIT_CLEAR");
+        cout<<"nearest/admitted donor approaches; others clear the queen lane passed\n";
+    } else if(test=="hunt_selective") {
+        setup();units=6;ally(2,{{10,8},{9,8}},100);
+        int enemy=local({12,9});tiles[enemy].id=99;tiles[enemy].team='B';tiles[enemy].head=true;
+        auto moves=legalMoves();assert(!coordinateHunt(moves));assert(role!=4);
+        cout<<"scouts decline a tiny target with open escape routes passed\n";
     } else if(test=="warnings") {
         setup(); addWarning(code(tiles[24].p),1,roundNo,true,true);
         auto m=legalMoves();assert(m.front().dir!=1);
@@ -87,7 +142,7 @@ int main(int argc,char**argv) {
         assert(!coordinateDonation(moves,chosen,reason));assert(donationTarget<0);
         cout<<"contested pearls block deliberate sacrifice passed\n";
     } else if(test=="receiver") {
-        setup(8,400);rememberQueen(id,length,tiles[24].p,roundNo);
+        setup(8,400);rememberAllyReport(id,length,tiles[24].p,roundNo);
         ally(20,{{11,9},{12,9}},400);ally(21,{{12,11},{13,11}},400);
         received={{OFFER,20,400,unsigned(id)},{OFFER,21,400,unsigned(id)}};
         auto m=legalMoves();Move c;string reason;
@@ -108,8 +163,9 @@ int main(int argc,char**argv) {
         }
         cout<<"nearby short donor consolidates after repeated unanswered offers passed\n";
      } else if(test=="hunt_join") {
-        setup();units=4;ally(2,{{10,8},{9,8}},100);
-        int enemy=local({12,9});tiles[enemy].id=99;tiles[enemy].team='B';tiles[enemy].head=true;
+        setup();units=4;ally(2,{{9,8},{8,8}},100);
+        for(Pos p:vector<Pos>{{12,9},{12,8},{11,8},{11,7},{12,7},{13,7}}) {int j=local(p);tiles[j].id=99;tiles[j].team='B';tiles[j].head=p==Pos{12,9};}
+        he[3][5]="w";rememberTerrain();
         received.clear(); // Visibility suffices; no received HUNT claim is needed.
         auto m=legalMoves();assert(coordinateHunt(m));assert(role==4 && outgoing.type==HUNT);
         assert(safeMove(m.front()));
@@ -227,14 +283,14 @@ int main(int argc,char**argv) {
         setup(2,410);
         ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8}},410);
         auto moves=legalMoves();Move chosen;string reason;
-        queenId=99;queenLength=12;queenHead={15,12};queenStamp=410;
+        feedTargetId=99;feedTargetLength=12;feedTargetHead={15,12};feedTargetStamp=410;
         assert(!coordinateDonation(moves,chosen,reason));
         assert(donationTarget<0 && (!hasOutgoing || outgoing.type!=OFFER));
         int to=local({10,11});tiles[to].pearl=1;
-        queenHead={10,12};double reserved=evaluate(2,to).score;
-        queenId=id;double queenScore=evaluate(2,to).score;
+        feedTargetHead={10,12};double reserved=evaluate(2,to).score;
+        feedTargetId=id;double queenScore=evaluate(2,to).score;
         assert(reserved+90<queenScore);
-        queenId=2;queenLength=8;queenHead={11,9};queenStamp=410;
+        feedTargetId=2;feedTargetLength=8;feedTargetHead={11,9};feedTargetStamp=410;
         assert(coordinateDonation(moves,chosen,reason));
         assert(donationTarget==2 && reason=="DONATE_DIRECT" && chosen.dir==3);
         cout<<"safe direct gift needs a fresh elected queen, not an ACK passed\n";
@@ -249,7 +305,7 @@ int main(int argc,char**argv) {
         setup(2,420);turnsAlive=10;
         inbox={from(77,QUEEN,unsigned(code({13,12}))|(20u<<12),418)};
         receiveRadio();
-        assert(queenId==77 && queenLength==20 && queenHead==Pos(13,12));
+        assert(feedTargetId==77 && feedTargetLength==20 && feedTargetHead==Pos(13,12));
         emitRadio();
         assert(outgoing.type==QUEEN && outgoing.sender==77 && outgoing.stamp==418);
         auto raw=encodePacket(outgoing);
@@ -280,7 +336,7 @@ int main(int argc,char**argv) {
         assert(pocketEscapeSplit(moves));
         cout<<"three-pearl pocket can be entered and a length-three tail can escape passed\n";
     } else if(test=="failed_gift") {
-        setup(8,400);rememberQueen(id,length,tiles[24].p,roundNo);
+        setup(8,400);rememberAllyReport(id,length,tiles[24].p,roundNo);
         ally(20,{{11,9},{12,9}},400);
         received={{OFFER,20,400,unsigned(id)}};
         auto moves=legalMoves();Move chosen;string reason;
@@ -295,7 +351,7 @@ int main(int argc,char**argv) {
         assert(receiveDonor<0 && receivePearls.empty());
         cout<<"unfulfilled offer never becomes phantom food and expires passed\n";
     } else if(test=="real_gift") {
-        setup(8,400);rememberQueen(id,length,tiles[24].p,roundNo);
+        setup(8,400);rememberAllyReport(id,length,tiles[24].p,roundNo);
         ally(20,{{11,9},{12,9}},400);
         received={{OFFER,20,400,unsigned(id)}};
         auto moves=legalMoves();Move chosen;string reason;
@@ -314,18 +370,18 @@ int main(int argc,char**argv) {
         cout<<"safe partial gift does not need the whole donor inside vision passed\n";
     } else if(test=="queen_update") {
         setup(2,420);
-        rememberQueen(77,20,{13,12},400);rememberQueen(88,12,{12,12},401);
-        assert(queenId==77);
-        rememberQueen(77,2,{13,12},402);assert(queenId==88);
-        rememberQueen(77,20,{13,12},400);assert(queenId==88);
+        rememberAllyReport(77,20,{13,12},400);rememberAllyReport(88,12,{12,12},401);
+        assert(feedTargetId==77);
+        rememberAllyReport(77,2,{13,12},402);assert(feedTargetId==88);
+        rememberAllyReport(77,20,{13,12},400);assert(feedTargetId==88);
         setup(2,360);inbox={from(77,QUEEN,unsigned(code({13,12}))|(5u<<12),359)};
-        receiveRadio();assert(queenId==77 && queenLength==5);
+        receiveRadio();assert(feedTargetId==77 && feedTargetLength==5);
         emitRadio();assert(outgoing.type==QUEEN && outgoing.stamp==359);
         cout<<"small queen reports relay; newer shrinkage defeats stale length passed\n";
     } else if(test=="far_donor") {
-        setup(2,420);rememberQueen(77,10,{18,14},420);
+        setup(2,420);rememberAllyReport(77,10,{18,14},420);
         auto moves=legalMoves();Move chosen;string reason;
-        assert(distance(tiles[24].p,queenHead)>10);
+        assert(distance(tiles[24].p,feedTargetHead)>10);
         assert(!coordinateDonation(moves,chosen,reason));
         assert(role==1 && reason=="DONOR_SEEK" && donationTarget<0);
         cout<<"sonar length starts donor travel beyond the old ten-tile limit passed\n";
@@ -342,13 +398,14 @@ int main(int argc,char**argv) {
         roundNo=162;inbox.clear();receiveRadio();assert(resources.empty());
         cout<<"fountain detection, relay provenance and expiry passed\n";
     } else if(test=="hunt_extended") {
-        setup();units=4;ally(2,{{10,8},{9,8}},100);
-        int enemy=local({12,9});tiles[enemy].id=99;tiles[enemy].team='B';tiles[enemy].head=true;
+        setup();units=4;ally(2,{{9,8},{8,8}},100);
+        for(Pos p:vector<Pos>{{12,9},{12,8},{11,8},{11,7},{12,7},{13,7}}) {int j=local(p);tiles[j].id=99;tiles[j].team='B';tiles[j].head=p==Pos{12,9};}
+        he[3][5]="w";rememberTerrain();
         huntEnemy=99;huntSince=88;huntProgress=99;
-        received={{HUNT,2,100,unsigned(code({12,9}))|(99u<<12)|(1u<<26)}};
+        received={{HUNT,2,100,unsigned(code({12,9}))|(99u<<12)|(3u<<24)|(1u<<26)}};
         auto moves=legalMoves();assert(coordinateHunt(moves));
         assert(outgoing.type==HUNT && int((outgoing.payload>>12)&4095)==99);
-        assert(int((outgoing.payload>>24)&3)!=0);
+        assert(int((outgoing.payload>>24)&3)!=3);
         cout<<"productive hunt survives twelve turns and honors a teammate exit claim passed\n";
     } else if(test=="long_lookahead") {
         setup(8,420);
@@ -358,12 +415,13 @@ int main(int argc,char**argv) {
         assert(!move.sustainable && !safeMove(move));
         cout<<"long queen rejects a move that closes after later tail steps passed\n";
     } else if(test=="queen_guard") {
-        setup(2,420);units=6;queenId=77;queenLength=12;queenHead={9,10};queenStamp=420;
+        setup(2,420);units=6;feedTargetId=77;feedTargetLength=12;feedTargetHead={9,10};feedTargetStamp=420;
         for(Pos p:vector<Pos>{{11,10},{11,9},{12,9},{13,9},{13,8},{12,8}}) {
             int j=local(p);tiles[j].id=90;tiles[j].team='B';tiles[j].head=p==Pos{11,10};
         }
         assert(favorableHeadTrade()==1);
-        queenHead={2,2};assert(favorableHeadTrade()<0);
+        role=1;assert(favorableHeadTrade()==1);role=6;assert(favorableHeadTrade()==1);
+        feedTargetHead={2,2};assert(favorableHeadTrade()<0);
         cout<<"late short guards may trade against a large enemy threatening their queen passed\n";
     } else if(test=="tail_ambush") {
         setup(5,100);units=4;

@@ -50,7 +50,7 @@ class Client:
         return actions[0],out
     def close(self): self.p.stdin.close();self.p.wait(timeout=2)
 
-def once(body,owner=0,**kw):
+def once(body,owner=10,**kw):
     c=Client(owner);out=c.ask(frame(10,body,owner,echo=False,**kw));c.close();return out
 
 # Directional exploration must leave a single toroidal row, without short loops.

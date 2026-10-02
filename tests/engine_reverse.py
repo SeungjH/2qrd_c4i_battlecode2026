@@ -16,7 +16,7 @@ lines += [f'EDGE_COUNT {len(edges)}',*edges,'DRAGON_COUNT 2',
           'DRAGON 0 10 '+' '.join(f'{x} {y}' for x,y in body),
           'DRAGON 1 2 2 2 2 3','END']
 engine=EngineModule();pool=Pool([str(Path(sys.argv[1]).resolve())],size=1)
-live={};teams={};actions=[];children=[]
+live={};teams={};actions=[];children=[];indicators=[]
 class Enough(Exception):pass
 def spawn(i,init):
  teams[i]=next(s.split()[1] for s in init.decode().splitlines() if s.startswith('TEAM '))
@@ -30,6 +30,7 @@ def reply(i,block):
  assert not live[i].error,live[i].error
  act=next(x for x in out.decode().splitlines() if x.startswith(('MOVE ','SPLIT ')))
  actions.append((rnd,i,act))
+ indicators.extend((rnd,i,line) for line in out.decode().splitlines() if line.startswith("INDICATOR "))
  return out
 def death(i,r,reason):
  bot=live.pop(i,None)
@@ -43,4 +44,5 @@ finally:
 print('actions',actions[:10],'children',children)
 assert (0,0,'SPLIT 8') in actions
 assert any(i>1 and a.startswith('MOVE ') for r,i,a in actions if r==0)
+assert any(r==0 and i>1 and 'official=0 ' in line and 'queen=0 ' in line for r,i,line in indicators), indicators
 print('PASS: official engine created the eight-segment reversed child and it moved in the split round')

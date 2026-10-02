@@ -12,7 +12,13 @@ edges = [f'EDGE {r*(w+1)+x} {int(r in (20,22) and x==11)} -1'
          for r in range(2*h+1) for x in range(w+r%2)]
 lines += [f'EDGE_COUNT {len(edges)}', *edges, 'DRAGON_COUNT 3',
           'DRAGON 0 8 10 10 9 10 8 10 7 10 6 10 6 11 7 11 8 11',
-          'DRAGON 0 2 13 9 14 9', 'DRAGON 1 2 2 2 1 2', 'END']
+          'DRAGON 1 2 2 2 1 2', 'DRAGON 0 2 13 9 14 9', 'END']
+small = len(sys.argv)>2 and sys.argv[2]=='small'
+if small:
+    lines=[('DRAGON 0 2 10 10 9 10' if line.startswith('DRAGON 0 8 ') else
+            'DRAGON 0 4 13 10 14 10 14 9 13 9' if line=='DRAGON 0 2 13 9 14 9' else line) for line in lines]
+if small:
+    lines=[re.sub(r'^(EDGE \d+) \d+ -1$',r'\1 0 -1',line) for line in lines]
 engine = EngineModule()
 pool = Pool([str(Path(sys.argv[1]).resolve())], size=1)
 live, teams, lengths, indicators = {}, {}, [], []
@@ -33,7 +39,7 @@ def reply(i, block):
         return b'MOVE E\nENDTURN\n'
     if i == 0:
         lengths.append(int(re.search(rb'LENGTH (\d+)', block).group(1)))
-    shifted = re.sub(rb'^ROUND \d+', f'ROUND {rnd+410}'.encode(), block)
+    shifted = re.sub(rb'^ROUND \d+', f'ROUND {rnd+(300 if small else 410)}'.encode(), block)
     out = live[i].ask(shifted)
     assert not live[i].error, live[i].error
     indicators.extend(line for line in out.decode().splitlines() if line.startswith('INDICATOR '))
@@ -54,5 +60,5 @@ finally:
         bot.stop()
     pool.close()
 assert any('DONATE_DIRECT' in line for line in indicators), indicators
-assert max(lengths, default=0) >= 9, lengths
+assert max(lengths, default=0) >= (4 if small else 9), lengths
 print('PASS: sonar length authorized a direct gift; queen recovered it:', lengths)

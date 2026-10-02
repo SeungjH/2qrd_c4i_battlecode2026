@@ -14,7 +14,7 @@ edges=[]
 for r in range(2*h+1):
  for x in range(w+(r%2)):
   wall=('H' if r%2==0 else 'V',x%w,(r//2)%h) in walls;edges.append(f'EDGE {r*(w+1)+x} {int(wall)} -1')
-lines+=[f'EDGE_COUNT {len(edges)}',*edges,'DRAGON_COUNT 2','DRAGON 0 3 7 10 6 10 5 10','DRAGON 1 2 2 2 1 2','END']
+lines+=[f'EDGE_COUNT {len(edges)}',*edges,'DRAGON_COUNT 3','DRAGON 0 2 2 16 1 16','DRAGON 1 2 2 2 1 2','DRAGON 0 3 7 10 6 10 5 10','END']
 mp='\n'.join(lines)+'\n'
 engine=EngineModule();pool=Pool([str(Path(sys.argv[1]).resolve())],size=1);live={};teams={};counts=Counter();sent=set();deliveries=[];indicators=[]
 def spawn(i,init):
