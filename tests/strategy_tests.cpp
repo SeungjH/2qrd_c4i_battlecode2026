@@ -10,6 +10,9 @@ void setup(int len=3,int r=100) {
     for(auto &v:portalAt) v.fill(-1);
     portalPairs.clear(); knownPortalEdges.clear(); portalLastUsed.clear();
     sharedPortalExit.clear();portalRouteLastSent.clear();warnings.clear();allies.clear();received.clear();
+    warningSequence=0;
+    queenId=-1;queenLength=0;queenStamp=-100;queenLastSent=-100;hasOutgoing=false;
+    corridorEntry=-1;courierUntil=-1;reverseChildUntil=-1;donationTarget=-1;receiveDonor=-1;
     for(int j=0;j<49;j++) { tiles[j]=Tile{}; tiles[j].p={7+j%7,7+j/7}; localAt[code(tiles[j].p)]=j; }
     for(auto &r:he) for(auto &e:r) e=".";
     for(auto &r:ve) for(auto &e:r) e=".";
@@ -23,6 +26,7 @@ void ally(int owner,vector<Pos> b,int stamp=400) {
         tiles[j].dir=d;
     }
     allies[owner]={int(b.size()),stamp,0,b[0]};
+    rememberQueen(owner,int(b.size()),b[0],stamp);
 }
 unsigned long long from(int owner,int type,unsigned data,int stamp) {
     int saved=id;id=owner;auto raw=encodePacket({type,owner,stamp,data});id=saved;return raw;
@@ -53,26 +57,27 @@ int main(int argc,char**argv) {
         auto raw=from(2,STATUS,unsigned(code({11,10}))|(8u<<12),roundNo);inbox={raw};receiveRadio();assert(!allies.count(2));
         cout<<"newborn escape assignment, warning relay, nonvisible status rejection passed\n";
     } else if(test=="donation") {
-        setup(2,400);ally(2,{{11,9},{12,9},{13,9},{13,8}},400);
+        setup(2,400);ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8}},400);
         auto moves=legalMoves();Move chosen;string reason="EXPLORE";
-        assert(collectionPlan(id,2,4).safe);
+        assert(collectionPlan(id,2,8).safe);
         assert(!coordinateDonation(moves,chosen,reason));assert(chosen.dir<0 && outgoing.type==OFFER);
         int stamp=offerStamp;
         received={{ACCEPT,2,400,unsigned(id)|(unsigned(stamp)<<16)}};
         assert(coordinateDonation(moves,chosen,reason));
         assert(reason=="DONATE_CONFIRMED" && chosen.dir==3); // own tail, not another head
-        chosen=Move{};roundNo=399;assert(!coordinateDonation(moves,chosen,reason));
+        chosen=Move{};roundNo=349;assert(!coordinateDonation(moves,chosen,reason));
         roundNo=401;received[0].payload=11;assert(!coordinateDonation(moves,chosen,reason));
-        cout<<"donation needs correct ACK, round >=400 and safe collection; own-tail death passed\n";
+        cout<<"queen donation needs correct ACK, round >=350 and safe collection passed\n";
     } else if(test=="contested") {
-        setup(2,400);ally(2,{{11,9},{12,9},{13,9},{13,8}},400);
+        setup(2,400);ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8}},400);
         int j=local({11,11});tiles[j].id=99;tiles[j].head=true;tiles[j].team='B';
-        assert(!collectionPlan(id,2,4).safe);
+        assert(!collectionPlan(id,2,8).safe);
         auto moves=legalMoves();Move chosen;string reason;
         assert(!coordinateDonation(moves,chosen,reason));assert(donationTarget<0);
         cout<<"contested pearls block deliberate sacrifice passed\n";
     } else if(test=="receiver") {
-        setup(3,400);ally(20,{{11,9},{12,9}},400);ally(21,{{12,11},{13,11}},400);
+        setup(8,400);rememberQueen(id,length,tiles[24].p,roundNo);
+        ally(20,{{11,9},{12,9}},400);ally(21,{{12,11},{13,11}},400);
         received={{OFFER,20,400,unsigned(id)},{OFFER,21,400,unsigned(id)}};
         auto m=legalMoves();Move c;string reason;
         coordinateDonation(m,c,reason);
@@ -207,5 +212,61 @@ int main(int argc,char**argv) {
         roundNo=349;donationTarget=-1;hasOutgoing=false;
         assert(!coordinateDonation(moves,chosen,reason));
         cout<<"small donors can approach length-eight receiver from round 350 passed\n";
+    } else if(test=="queen_only") {
+        setup(2,410);
+        ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8}},410);
+        auto moves=legalMoves();Move chosen;string reason;
+        queenId=99;queenLength=12;queenHead={15,12};queenStamp=410;
+        assert(!coordinateDonation(moves,chosen,reason));
+        assert(donationTarget<0 && (!hasOutgoing || outgoing.type!=OFFER));
+        int to=local({10,11});tiles[to].pearl=1;
+        queenHead={10,12};double reserved=evaluate(2,to).score;
+        queenId=id;double queenScore=evaluate(2,to).score;
+        assert(reserved+90<queenScore);
+        queenId=2;queenLength=8;queenHead={11,9};queenStamp=410;
+        assert(!coordinateDonation(moves,chosen,reason));
+        assert(donationTarget==2 && outgoing.type==OFFER);
+        cout<<"only the elected queen may receive an intentional donation passed\n";
+    } else if(test=="warning_queue") {
+        setup(2,100);
+        addWarning(code({10,10}),0,100,true);
+        for(int k=0;k<64;k++) addWarning(code({k%20,k/20}),1,100,false);
+        assert(warnings.size()==64 && avoided(code({10,10}),0));
+        assert(!avoided(code({0,0}),1) && avoided(code({1,0}),1));
+        cout<<"warning queue evicts oldest temporary record before permanent danger passed\n";
+    } else if(test=="queen_relay") {
+        setup(2,420);turnsAlive=10;
+        inbox={from(77,QUEEN,unsigned(code({13,12}))|(20u<<12),418)};
+        receiveRadio();
+        assert(queenId==77 && queenLength==20 && queenHead==Pos(13,12));
+        emitRadio();
+        assert(outgoing.type==QUEEN && outgoing.sender==77 && outgoing.stamp==418);
+        auto raw=encodePacket(outgoing);
+        assert(int((raw>>36)&65535)==77 && int((raw>>27)&511)==418);
+        cout<<"queen identity, length and position survive sonar relay passed\n";
+    } else if(test=="wide_scout") {
+        setup(2,100);width=48;height=24;turnsAlive=20;
+        ve[3][4]="7";remember(7,false,{11,10});rememberTerrain();
+        auto moves=legalMoves();
+        assert(find_if(moves.begin(),moves.end(),[](const Move&m){return m.portal && m.uncertain && m.score>40;})!=moves.end());
+        assert(!guideOutOfLoop(moves));
+        setup(4,100);width=48;height=24;turnsAlive=20;units=4;
+        moves=legalMoves();assert(routineSplit(moves));
+        cout<<"large-map scouts take sparse portals and split without recent food passed\n";
+    } else if(test=="pocket_profit") {
+        setup(2,100);
+        he[0][3]="w";
+        for(int r=0;r<3;r++) ve[r][3]=ve[r][4]="w";
+        for(int y=7;y<=9;y++) tiles[local({10,y})].pearl=1;
+        rememberTerrain();auto moves=legalMoves();
+        assert(profitablePocketMove(moves) && moves.front().dir==0);
+        setup(5,100);
+        for(auto &t:tiles) if(t.id==id) {t.id=-1;t.head=false;}
+        body={{10,10},{10,11},{10,12},{11,12},{11,13}};
+        for(int n=0;n<5;n++) {int j=local(body[n]);tiles[j].id=id;tiles[j].team=team;tiles[j].head=n==0;}
+        he[3][3]="w";ve[3][3]=ve[3][4]="w";
+        corridorEntry=code(body.back());moves=legalMoves();
+        assert(pocketEscapeSplit(moves));
+        cout<<"three-pearl pocket can be entered and a length-three tail can escape passed\n";
     } else return 2;
 }

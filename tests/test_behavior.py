@@ -99,4 +99,13 @@ print('no-exit fallback: avoids ally head')
 a,_=once([(5,5),(5,6),(5,7)],others=[(1,[(5,3),(5,2),(5,1)])])
 assert a in ('MOVE E','MOVE W'),a
 print('ally separation: moves sideways away from ally ahead')
+
+# Replay M840105: visible pearls lie behind a wall, six steps away by the north detour.
+c=Client(owner=7,w=32,h=16)
+walls={('V',18,y) for y in (12,13,14,15)}
+a,out=c.ask(frame(185,[(19,13),(20,13)],owner=7,w=32,h=16,
+                  pearls={(17,13),(17,14),(17,15)},walls=walls,echo=False))
+assert a=='MOVE N',(a,out)
+assert any('PEARL_ROUTE' in line for line in out),out
+c.close();print('wall-detour pearl route: moves north toward reachable visible food')
 print('ALL BEHAVIOR REGRESSIONS PASSED')
