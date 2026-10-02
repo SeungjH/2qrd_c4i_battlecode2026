@@ -10,8 +10,8 @@
 #include <vector>
 using namespace std;
 
-// Explorer v10. Each process controls exactly one dragon.
-// MOVE has one direction. Routine splits release two segments; emergency
+// Explorer v11. Each process controls exactly one dragon.
+// Only admitted late donors may MOVE two free steps. Routine splits release two segments; emergency
 // reversal leaves the old head with two and sends the long rear away.
 namespace policy {
 constexpr int ExpansionEnd = 250;
@@ -65,8 +65,12 @@ int distance(Pos a,Pos b) {
     int x=abs(a.x-b.x),y=abs(a.y-b.y);
     return min(x,width-x)+min(y,height-y);
 }
+int homeDistance(Pos p,int home) {
+    int x=abs(p.x-home%64),y=abs(p.y-home/64);
+    return max(min(x,width-x),min(y,height-y));
+}
 bool officialQueen() { return id==0 || id==1; }
-bool protectedLong() { return officialQueen() || (roundNo>=400 && length>=8) || (roundNo>=350 && length>=16); }
+bool protectedLong();
 bool recentIncome(int window=12) { return !foodRounds.empty() && roundNo-foodRounds.back()<=window; }
 // Radio packets are self-described, not authenticated by the engine. Critical
 // agreements additionally require a currently visible ally and fresh status.
@@ -97,7 +101,8 @@ static int officialQueenId=-1,officialQueenDeath=-1;
 static int servingDonor=-1,servingUntil=-1;
 static int previousEntry=-1,previousDirection=-1;
 static map<int,int> queenBadEdges;
-static int assemblyCenter=-1;
+static int assemblyCenter=-1,feedTargetSince=-1,spawnHome=-1;
+static map<int,pair<int,int>> rallyReports; // owner -> coordinate, original stamp
 static int donorTravelOwner=-1,donorBestDistance=1000,donorProgress=-1,donorCooldown=-1;
 static int huntEnemy=-1,huntSince=-1,huntProgress=-1,huntDistance=1000,huntExits=4,huntCooldown=-1;
 static deque<int> huntHeads;
@@ -106,6 +111,9 @@ static bool attackSplitRadio=false;
 static Packet outgoing;
 static bool hasOutgoing=false;
 static int role=0;
+
+bool protectedLong() { return officialQueen() || (roundNo>=350 && feedTargetId==id && length>=4) ||
+    (roundNo>=400 && length>=8) || (roundNo>=350 && length>=16); }
 
 Pos decodePos(int k) { return {k%64,k/64}; }
 bool validKey(int k) { Pos p=decodePos(k); return p.x<width && p.y<height; }
@@ -147,6 +155,11 @@ void selectFeedTarget() {
        old!=allyReports.end() && old->second.len>=minimum && feedTargetLength<=old->second.len+2) {
         feedTargetId=incumbent;feedTargetLength=old->second.len;feedTargetHead=old->second.head;feedTargetStamp=old->second.stamp;
     }
+    if(roundNo>=350 && incumbent>=2 && old!=allyReports.end() && old->second.len>=minimum &&
+       roundNo-feedTargetSince<64 && feedTargetLength<old->second.len+4) {
+        feedTargetId=incumbent;feedTargetLength=old->second.len;
+        feedTargetHead=old->second.head;feedTargetStamp=old->second.stamp;
+    }
     // IDs 0 and 1 are fixed queens. A split child never inherits this role.
     if(officialQueenId>=0 && officialQueenDeath<0) {
         auto fixed=allyReports.find(officialQueenId);
@@ -156,6 +169,7 @@ void selectFeedTarget() {
             feedTargetHead=fixed->second.head;feedTargetStamp=fixed->second.stamp;
         }
     }
+    if(feedTargetId!=incumbent) feedTargetSince=roundNo;
 }
 void rememberAllyReport(int owner,int len,Pos head,int stamp) {
     if(owner<0 || len<2 || head.x<0 || head.x>=width || head.y<0 || head.y>=height ||
@@ -175,10 +189,25 @@ void rememberAllyReport(int owner,int len,Pos head,int stamp) {
     selectFeedTarget();
 }
 bool reservedPearl(int key) {
+    // A visible fixed queen reserves nearby food even when its SONAR beam missed us.
+    if(!officialQueen()) for(const Tile &t:tiles)
+        if(t.head && t.team==team && t.id<=1 && t.id>=0 && distance(decodePos(key),t.p)<=4) return true;
+    if(feedTargetFresh() && feedTargetId>=0 && feedTargetId<=1 && feedTargetId!=id) {
+        auto home=rallyReports.find(feedTargetId);
+        if(home!=rallyReports.end() && roundNo-home->second.second<=20 &&
+           homeDistance(decodePos(key),home->second.first)<=max(4,feedTargetLength/4+2)) return true;
+    }
     auto it=reservedFood.find(key);
     if(it!=reservedFood.end() && it->second.second>=roundNo && it->second.first!=id) return true;
     return roundNo>=280 && feedTargetFresh() && feedTargetId!=id && roundNo-feedTargetStamp<=8 &&
         distance(decodePos(key),feedTargetHead)<=4;
+}
+bool exclusivePearl(int key) {
+    auto gift=reservedFood.find(key);
+    if(gift!=reservedFood.end() && gift->second.second>=roundNo && gift->second.first!=id) return true;
+    if(!officialQueen()) for(const Tile &t:tiles)
+        if(t.head && t.team==team && t.id>=0 && t.id<=1 && distance(decodePos(key),t.p)<=4) return true;
+    return feedTargetFresh() && feedTargetId>=0 && feedTargetId<=1 && feedTargetId!=id && reservedPearl(key);
 }
 void rememberResource(int key,int score,int stamp,bool fountain) {
     if(!validKey(key) || stamp>roundNo || roundNo-stamp>(fountain?60:24)) return;
@@ -233,6 +262,16 @@ void receiveRadio() {
         if(p.sender==id || p.stamp>roundNo || p.type>QUEEN) continue;
         int age=roundNo-p.stamp;
         if(p.type==QUEEN) {
+            if(p.payload&(1u<<26)) {
+                int key=p.payload&4095;
+                if(validKey(key) && age<=20) {
+                    auto old=rallyReports.find(p.sender);
+                    if(old==rallyReports.end() || p.stamp>=old->second.second)
+                        rallyReports[p.sender]={key,p.stamp};
+                    if(rallyReports.size()>32) rallyReports.erase(rallyReports.begin());
+                }
+                continue;
+            }
             int key=p.payload&4095,len=(p.payload>>12)&4095;
             if(len==0 && p.sender==officialQueenId && p.stamp>=feedTargetStamp) {
                 officialQueenDeath=p.stamp;allyReports.erase(p.sender);selectFeedTarget();
@@ -270,6 +309,11 @@ void receiveRadio() {
         }
         if(p.type==ESCAPE) {
             int child=p.payload&4095,entry=(p.payload>>12)&4095;
+            // A proactive branch assignment uses reserved entry 4094, not a danger warning.
+            if(turnsAlive==0 && p.sender<id && child==code(tiles[24].p) && entry==4094 && length==2) {
+                bearing=(p.payload>>24)&3;reverseChildUntil=roundNo;courierUntil=roundNo-1;
+                continue;
+            }
             // Reserved entry 4095 tells the reversed child to leave; it does not transfer queen identity.
             if(turnsAlive<=1 && p.sender<id && child==code(tiles[24].p) && entry==4095 && length>=6) {
                 reverseChildUntil=roundNo+2;bearing=facing;
@@ -296,6 +340,11 @@ void receiveRadio() {
             rememberAllyReport(p.sender,len,decodePos(key),p.stamp);
         } else {
             received.push_back(p);
+            if(p.type==OFFER) {
+                int receiver=p.payload&65535;
+                for(const Tile &t:tiles) if(t.id==p.sender && t.team==team)
+                    reservedFood[code(t.p)]={receiver,roundNo+10};
+            }
             if(p.type==ACCEPT && p.sender==feedTargetId) {
                 int donor=p.payload&65535;servingDonor=donor;servingUntil=roundNo+6;
                 for(const Tile &t:tiles) if(t.id==donor && t.team==team)
@@ -319,6 +368,15 @@ void receiveRadio() {
         retiredUntil=roundNo+12;selectFeedTarget();
     }
     if(!feedTargetFresh()) feedTargetId=-1;
+    for(const Tile &t:tiles) if(t.head && t.team==team && t.id!=id) {
+        auto report=allyReports.find(t.id);
+        if(report==allyReports.end() || roundNo-report->second.stamp>8) continue;
+        auto previous=allies.find(t.id);
+        int observedRole=previous==allies.end()?0:previous->second.role;
+        allies[t.id]={report->second.len,roundNo,observedRole,t.p};
+        report->second.head=t.p;
+        if(t.id==feedTargetId) feedTargetHead=t.p;
+    }
     rememberAllyReport(id,length,tiles[24].p,roundNo);
     for(auto it=reservedFood.begin();it!=reservedFood.end();)
         if(it->second.second<roundNo) it=reservedFood.erase(it); else ++it;
@@ -515,9 +573,11 @@ Move evaluate(int d,int to) {
     if(!m.sustainable) s-=1000;
     if(obstructsQueen(to)) s-=180;
     if(protectedLong()) {
+        if(assemblyCenter>=0 && homeDistance(tiles[to].p,assemblyCenter)>max(4,length/4+2))
+            s-=80.0;
         s+=2.0*min(r.area,32)+5.0*min(r.exits,3);
         if(assemblyCenter>=0)
-            s-=4.0*max(0,distance(tiles[to].p,decodePos(assemblyCenter))-max(4,length/4+2));
+            s-=4.0*max(0,homeDistance(tiles[to].p,assemblyCenter)-max(4,length/4+2));
         auto bad=queenBadEdges.find(code(tiles[24].p)*4+d);
         if(bad!=queenBadEdges.end() && bad->second>=roundNo) s-=500;
     }
@@ -611,7 +671,7 @@ vector<Move> legalMoves() {
         if(protectedLong() && edge(24,d)!=".") continue;
         if(edge(24,d)=="w") continue;
         int to=nextTile(24,d);
-        if(to>=0 && tiles[to].id<0 &&
+        if(to>=0 && tiles[to].id<0 && !(roundNo>=280 && tiles[to].pearl && exclusivePearl(code(tiles[to].p))) &&
            !(edge(24,d)!="." && knownPortalTrap(code(tiles[to].p))))
             out.push_back(evaluate(d,to));
         else if(to<0 && edge(24,d)!="." && portalReady(stoi(edge(24,d)))) {
@@ -683,7 +743,7 @@ bool guideOutOfLoop(vector<Move>& moves) {
     if(!navigating || moves.empty()) { goal=-1; return false; }
 
     array<bool,4096> blocked{};
-    for(const auto &t:tiles) if(t.id>=0) blocked[code(t.p)]=true;
+    for(const auto &t:tiles) if(t.id>=0 || (roundNo>=280 && t.pearl && exclusivePearl(code(t.p)))) blocked[code(t.p)]=true;
     for(Pos p:body) if(p.x>=0) blocked[code(p)]=true;
     blocked[here]=false;
     array<bool,4> safe{};
@@ -747,6 +807,10 @@ int terrainDegree(int k) {
 bool safeMove(const Move &m) {
     if(protectedLong() && m.portal) return false;
     if(!m.sustainable || obstructsQueen(m.to)) return false;
+    if(roundNo>=280 && m.to>=0 && tiles[m.to].pearl && exclusivePearl(code(tiles[m.to].p))) return false;
+    if(protectedLong() && assemblyCenter>=0 && m.to>=0 &&
+       homeDistance(tiles[m.to].p,assemblyCenter)>max(4,length/4+2) &&
+       homeDistance(tiles[m.to].p,assemblyCenter)>=homeDistance(tiles[24].p,assemblyCenter)) return false;
     if(m.uncertain) return m.portal && m.score>-1e19 &&
         portalDestination(code(tiles[24].p),m.dir,m.portalId)>=0 &&
         portalReady(m.portalId) && !avoided(code(tiles[24].p),m.dir);
@@ -789,7 +853,7 @@ bool profitablePocketMove(vector<Move>& moves) {
 int routeDirection(const vector<Move>& moves,int destination) {
     if(destination<0 || !validKey(destination)) return -1;
     array<bool,4096> blocked{};
-    for(const auto &t:tiles) if(t.id>=0) blocked[code(t.p)]=true;
+    for(const auto &t:tiles) if(t.id>=0 || (roundNo>=280 && t.pearl && exclusivePearl(code(t.p)))) blocked[code(t.p)]=true;
     for(Pos p:body) if(p.x>=0) blocked[code(p)]=true;
     int here=code(tiles[24].p);
     array<int,4096> first; first.fill(-1);
@@ -809,6 +873,30 @@ int routeDirection(const vector<Move>& moves,int destination) {
     }
     return -1;
 }
+int routeToMeeting(const vector<Move>& moves,int destination) {
+    if(destination<0 || !validKey(destination)) return -1;
+    static array<bool,4096> blocked;blocked.fill(false);
+    static array<int,4096> first,dist,q;first.fill(-1);dist.fill(-1);
+    for(const Tile &t:tiles) if(t.id>=0 || (roundNo>=280 && t.pearl && exclusivePearl(code(t.p)))) blocked[code(t.p)]=true;
+    for(Pos p:body) if(p.x>=0) blocked[code(p)]=true;
+    int here=code(tiles[24].p),begin=0,end=0,best=-1;double value=-1e20;
+    array<bool,4> safe{};for(const Move &m:moves) if(safeMove(m)) safe[m.dir]=true;
+    q[end++]=here;dist[here]=0;
+    while(begin<end) {
+        int at=q[begin++];
+        for(int d=0;d<4;d++) {
+            if((at==here && !safe[d]) || avoided(at,d)) continue;
+            int to=terrain[at][d];
+            if(to<0 || blocked[to] || dist[to]>=0) continue;
+            dist[to]=dist[at]+1;first[to]=at==here?d:first[at];q[end++]=to;
+            int gap=distance(decodePos(to),decodePos(destination));
+            bool frontier=any_of(terrain[to].begin(),terrain[to].end(),[](int e){return e<-1;});
+            double score=-12.0*gap-dist[to]+(frontier?3:0);
+            if(score>value) {value=score;best=first[to];}
+        }
+    }
+    return best;
+}
 // Simulate the complete route, including tail retention on every visible meal.
 // Foreign bodies are fixed for this short prediction; unknown cells remain uncertain.
 bool pearlPathSafe(const vector<int>& path) {
@@ -817,11 +905,14 @@ bool pearlPathSafe(const vector<int>& path) {
     for(Pos p:body) {if(p.x<0) return true;trail.push_back(code(p));}
     array<bool,4096> others{};
     for(const Tile &t:tiles) if(t.id>=0 && t.id!=id) others[code(t.p)]=true;
-    array<bool,49> eaten{};
+    array<bool,49> eaten{};bool finalMeal=false;
     for(int next:path) {
+        if(protectedLong() && assemblyCenter>=0 &&
+           homeDistance(decodePos(next),assemblyCenter)>max(4,length/4+2)) return false;
         if(others[next] || find(trail.begin(),trail.end(),next)!=trail.end()) return false;
         trail.insert(trail.begin(),next);
         int j=local(decodePos(next));bool food=j>=0 && tiles[j].pearl && !eaten[j];
+        finalMeal=food;
         if(food) eaten[j]=true;else trail.pop_back();
     }
     int target=local(decodePos(trail.front()));
@@ -830,7 +921,7 @@ bool pearlPathSafe(const vector<int>& path) {
     for(int j=0;j<49;j++) blocked[j]=others[code(tiles[j].p)];
     for(int key:trail) {int j=local(decodePos(key));if(j>=0) blocked[j]=true;}
     Region terminal=region(target,blocked,false);
-    int beforeMeal=int(trail.size())-1;
+    int beforeMeal=int(trail.size())-int(finalMeal);
     bool protect=officialQueen() || (roundNo>=400 && beforeMeal>=8) || (roundNo>=350 && beforeMeal>=16);
     int needed=protect?min(beforeMeal+6,32):beforeMeal>=8?min(beforeMeal+6,24):min(beforeMeal+2,14);
     if(terminal.exits==0 || (!terminal.frontier && terminal.area<needed)) return false;
@@ -845,7 +936,7 @@ bool guideToPearl(vector<Move>& moves) {
     for(const Move &m:moves) if(m.to>=0 && tiles[m.to].pearl && !safeMove(m))
         pearlCooldown[code(tiles[m.to].p)]=roundNo+24;
     static array<bool,4096> blocked;blocked.fill(false);
-    for(const Tile &t:tiles) if(t.id>=0) blocked[code(t.p)]=true;
+    for(const Tile &t:tiles) if(t.id>=0 || (roundNo>=280 && t.pearl && exclusivePearl(code(t.p)))) blocked[code(t.p)]=true;
     for(Pos p:body) if(p.x>=0) blocked[code(p)]=true;
     int here=code(tiles[24].p);blocked[here]=false;
     static array<int,4096> first,dist,parent;first.fill(-1);dist.fill(-1);parent.fill(-1);
@@ -876,6 +967,7 @@ bool guideToResource(vector<Move>& moves) {
     if(recentIncome() || roundNo>=490 || moves.empty()) return false;
     double best=-1e20;int direction=-1;resourceGoal=-1;
     for(auto [key,r]:resources) {
+        if(protectedLong() && assemblyCenter>=0 && homeDistance(decodePos(key),assemblyCenter)>max(4,length/4+2)) continue;
         int dist=distance(tiles[24].p,decodePos(key));
         if(dist<2 || dist>30 || roundNo+dist+6>=500 || reservedPearl(key)) continue;
         int crowd=0;
@@ -915,6 +1007,14 @@ bool guideCourier(vector<Move>& moves) {
     // Fresh children have no inherited map. In a narrow passage their initial
     // facing points away from their parent, and each bend gives the only free exit.
     if(terrainDegree(code(tiles[24].p))>=3 && courierEntry<0) { courierUntil=roundNo-1; return false; }
+    vector<Move> choices;
+    for(const Move &m:moves) if(m.to>=0 && safeMove(m)) choices.push_back(m);
+    if(choices.size()>=2) {
+        auto best=max_element(choices.begin(),choices.end(),[](const Move&a,const Move&b){
+            return a.area*2+a.exits*5+a.score*0.1 < b.area*2+b.exits*5+b.score*0.1;
+        });
+        if(promote(moves,best->dir)) return true;
+    }
     if(promote(moves,facing)) return true;
     return !moves.empty();
 }
@@ -969,7 +1069,9 @@ Collection collectionPlan(int donor,int receiver,int receiverLength) {
        roundNo+plan.dist+plan.count*2+2>=500) return plan;
     if(!r.frontier && r.area<receiverLength+plan.count+3) return plan;
     int turns=0;for(int d=0;d<4;d++) {int n=nextTile(receiverHead,d,false);if(n>=0 && !blocked[n]) turns++;}
-    if(turns<2) return plan;
+    // One forward exit is normal in a corridor. Keep room and enemy checks;
+    // requiring two immediate exits prevented safe gifts beside moving receivers.
+    if(turns<1) return plan;
     // Don't donate food in a contested pocket; this is intentionally conservative.
     for(int j=0;j<49;j++) if(tiles[j].head && tiles[j].team!=team &&
         distance(tiles[j].p,tiles[plan.closest].p)<=plan.dist+2) return plan;
@@ -1015,11 +1117,11 @@ bool eligibleDonor(int donorId,int donorLength) {
         // Fixed queen outranks a longer collector. Grow it progressively,
         // preserving most scouts until the collection phase.
         return roundNo>=policy::SupportStart && feedTargetLength>=2 &&
-            donorLength<=(quietEndgame()?12:roundNo<330?4:roundNo<400?6:12);
+            donorLength<=(roundNo<330?4:roundNo<350?6:12);
     }
-    if(feedTargetLength<=donorLength) return false;
-    if(roundNo<400) return donorLength<=(quietEndgame()?12:6) && feedTargetLength>=8;
-    return feedTargetLength-donorLength>=3 || (donorLength<=3 && feedTargetLength>=4);
+    if(roundNo<350 || feedTargetLength<4) return false;
+    return feedTargetLength-donorLength>=2 ||
+        (roundNo>=400 && donorLength==feedTargetLength && feedTargetId<donorId);
 }
 bool donationCandidate() {
     // Keep a collector beside the queen until the final collection window.
@@ -1041,14 +1143,19 @@ bool donorHasTurn() {
     int best=id,near=distance(tiles[24].p,tiles[h].p);
     for(const Tile &t:tiles) if(t.head && t.team==team && t.id!=id && t.id!=feedTargetId) {
         auto a=allies.find(t.id);if(a==allies.end() || roundNo-a->second.stamp>4 || !eligibleDonor(t.id,a->second.len) ||
-            (a->second.role!=0 && a->second.role!=1 && a->second.role!=6)) continue;
+            (a->second.role!=1 && a->second.role!=6)) continue;
         int dist=distance(t.p,tiles[h].p);
         if(dist<=4 && (dist<near || (dist==near && t.id<best))) {best=t.id;near=dist;}
     }
     return best==id;
 }
 bool queenAssembly(vector<Move>& moves) {
-    if(roundNo<300 || feedTargetId!=id || length<4 || receiveDonor>=0 || moves.empty()) return false;
+    if((!officialQueen() && roundNo<300) || (officialQueen() && roundNo<8) || feedTargetId!=id || length<4 || receiveDonor>=0 || moves.empty()) return false;
+    if(officialQueen() && spawnHome>=0 && homeDistance(tiles[24].p,spawnHome)<=max(4,length/4+2)) {
+        bool enemy=false;
+        for(const Tile &t:tiles) if(t.id>=0 && t.head && t.team!=team && distance(t.p,decodePos(spawnHome))<=5) enemy=true;
+        if(!enemy && assemblyCenter<0) assemblyCenter=spawnHome;
+    }
     if(assemblyCenter<0) {
         array<bool,49> blocked{};for(int j=0;j<49;j++) blocked[j]=tiles[j].id>=0;
         Region room=region(24,blocked,false);
@@ -1062,7 +1169,7 @@ bool queenAssembly(vector<Move>& moves) {
     auto best=moves.end();double value=-1e20;
     for(auto it=moves.begin();it!=moves.end();++it) if(it->to>=0 && safeMove(*it)) {
         double score=2.0*min(it->area,32)+5.0*min(it->exits,3)+it->score*0.2;
-        if(assemblyCenter>=0) score-=4.0*max(0,distance(tiles[it->to].p,decodePos(assemblyCenter))-max(4,length/4+2));
+        if(assemblyCenter>=0) score-=4.0*max(0,homeDistance(tiles[it->to].p,assemblyCenter)-max(4,length/4+2));
         if(score>value) {value=score;best=it;}
     }
     if(best==moves.end()) return false;
@@ -1078,6 +1185,17 @@ bool coordinateDonation(vector<Move>& moves,Move &chosen,string &reason) {
     if(receiveDonor>=0 && (roundNo>receiveUntil || feedTargetId!=id)) {
         receiveDonor=-1;receivePearls.clear();receiveConfirmed=false;
     }
+    // A donor STATUS is also an intent signal. Do not stall the receiver merely
+    // because the narrow OFFER beam did not hit its body this turn.
+    if(feedTargetId==id && receiveDonor<0) {
+        int candidate=-1,near=1000;
+        for(auto [owner,a]:allies) if(a.role==1 && freshAlly(owner) && eligibleDonor(owner,a.len)) {
+            Collection plan=collectionPlan(owner,id,length);
+            if(plan.safe && plan.dist<near) {candidate=owner;near=plan.dist;}
+        }
+        if(candidate>=0 && none_of(received.begin(),received.end(),[&](const Packet &p){return p.type==OFFER && p.sender==candidate;}))
+            received.push_back({OFFER,candidate,allies[candidate].stamp,unsigned(id)});
+    }
     for(const Packet &p:received) if(feedTargetId==id && p.type==OFFER && int(p.payload&65535)==id &&
         freshAlly(p.sender) &&
         eligibleDonor(p.sender,allies[p.sender].len) &&
@@ -1089,6 +1207,7 @@ bool coordinateDonation(vector<Move>& moves,Move &chosen,string &reason) {
                 receiveConfirmed=false;
             }
             receiveMeeting=code(tiles[plan.closest].p);
+            for(const Tile &t:tiles) if(t.id==p.sender) reservedFood[code(t.p)]={id,roundNo+10};
             if(!receiveConfirmed) {
                 receivePearls.clear();
                 auto parts=visibleBody(p.sender,allies[p.sender].len);
@@ -1139,26 +1258,30 @@ bool coordinateDonation(vector<Move>& moves,Move &chosen,string &reason) {
         if(best>=0 && promote(moves,best)) {role=6;reason="DONOR_WAIT_CLEAR";}
         return false;
     }
-    int travel=distance(tiles[24].p,feedTargetHead);
+    Pos meeting=feedTargetHead;
+    auto beacon=rallyReports.find(target);
+    if(beacon!=rallyReports.end() && roundNo-beacon->second.second<=20) meeting=decodePos(beacon->second.first);
+    int travel=distance(tiles[24].p,meeting);
     if(donorTravelOwner!=target) {donorTravelOwner=target;donorBestDistance=travel;donorProgress=roundNo;}
     if(travel<donorBestDistance) {donorBestDistance=travel;donorProgress=roundNo;}
-    if(travel>3 && roundNo-donorProgress>=12) {
-        donationTarget=-1;donorTravelOwner=-1;donorCooldown=roundNo+12;return false;
+    if(travel>3 && roundNo-donorProgress>=32) {
+        donationTarget=-1;donorTravelOwner=-1;donorCooldown=roundNo+4;return false;
     }
     if(roundNo+travel+(length+1)/2*2+6>=500) {donationTarget=-1;return false;}
     bool nearby=freshAlly(target) && visibleHead(target)>=0;
     Collection plan;
     if(nearby && (allies[target].role==0 || allies[target].role==2 || allies[target].role==5))
         plan=collectionPlan(id,target,allies[target].len);
+    if(nearby) travel=distance(tiles[24].p,feedTargetHead);
     if(!nearby || !plan.safe) {
         donationTarget=-1;
-        int d=nearby?-1:routeDirection(moves,code(feedTargetHead));
+        int d=nearby?-1:routeToMeeting(moves,code(meeting));
         if(nearby && approachAlly(moves,target)) {role=1;reason="DONOR_SEEK";}
         else {
             if(d<0) {
                 int closest=travel;
                 for(const Move &m:moves) if(m.to>=0 && safeMove(m)) {
-                    int next=distance(tiles[m.to].p,feedTargetHead);
+                    int next=distance(tiles[m.to].p,meeting);
                     if(next<closest) {closest=next;d=m.dir;}
                 }
             }
@@ -1168,7 +1291,7 @@ bool coordinateDonation(vector<Move>& moves,Move &chosen,string &reason) {
     }
     // With a live queen two steps away and every dropped pearl reachable, a
     // cheap donor can act immediately. Sonar length is sufficient role consent.
-    if((target<=1 || roundNo>=400) && length<=4 && (target<=1 || allies[target].len>=length+3) &&
+    if((target<=1 || roundNo>=400) && length<=6 && eligibleDonor(id,length) &&
        roundNo-allies[target].stamp<=2 && travel<=2 && plan.dist<=2 &&
        plan.count>=(length+1)/2) {
         int d=deliberateDeathDirection();
@@ -1185,7 +1308,7 @@ bool coordinateDonation(vector<Move>& moves,Move &chosen,string &reason) {
     }
     sendPacket(OFFER,unsigned(target),offerStamp,true);
     // A short gift may proceed after repeated missed replies, with a live visible queen.
-    if(((target<=1 && roundNo>=330) || roundNo>=410) && length<=6 && allies[target].len>=4 &&
+    if(((target<=1 && roundNo>=330) || roundNo>=350) && length<=12 && allies[target].len>=4 &&
        roundNo-donationTargetSince>=3 && travel<=3) {
         int d=deliberateDeathDirection();
         if(d>=0) {chosen.dir=d;reason="DONATE_NEAR";return true;}
@@ -1383,6 +1506,12 @@ void emitRadio() {
             portalRouteLastSent[key]=roundNo;shareInfo=true;
         }
     }
+    if(feedTargetId==id && assemblyCenter>=0) rallyReports[id]={assemblyCenter,roundNo};
+    auto rally=rallyReports.find(feedTargetId);
+    if(feedTargetFresh() && rally!=rallyReports.end() && roundNo-rally->second.second<=20 && roundNo%2==0) {
+        info={QUEEN,feedTargetId,rally->second.second,unsigned(rally->second.first)|
+            (unsigned(min(feedTargetLength,4095))<<12)|(1u<<26)};shareInfo=true;
+    }
     int aligned=-1;
     if(hasOutgoing && (outgoing.type==OFFER || outgoing.type==ACCEPT)) {
         int owner=outgoing.type==OFFER?donationTarget:receiveDonor,at=visibleHead(owner);
@@ -1407,6 +1536,9 @@ void emitRadio() {
         // Give length/election reports a channel even while warnings or offers are active.
         if(shareQueen && d==queenDir && (primary.type!=ESCAPE || roundNo<=retiredUntil)) packet=queen;
         if(shareInfo && d==infoDir && (!tactic || (primary.type!=ESCAPE && d!=aligned))) packet=info;
+        // Receiver pulses break the direction/position phase lock of a short home circuit.
+        if(shareQueen && feedTargetId==id && !tactic && roundNo%3==0)
+            packet=(shareInfo && d==infoDir)?info:queen;
         cout<<"SONAR "<<DIRS[d]<<' '<<encodePacket(packet)<<'\n';
     }
 }
@@ -1593,9 +1725,58 @@ int tailAmbushEnemy(const vector<Move>& moves) {
     return target;
 }
 
+int donorSprint(const Move &first,const string &reason) {
+    if(roundNo<350 || length<5 || officialQueen() || feedTargetId==id || role!=1 ||
+       (reason!="DONOR_SEEK" && reason!="DONOR_APPROACH") || !feedTargetFresh() ||
+       roundNo-feedTargetStamp>8 || first.to<0 || first.portal || !safeMove(first) || !donorHasTurn()) return -1;
+    if(any_of(body.begin(),body.end(),[](Pos p){return p.x<0;})) return -1;
+    for(const Tile &t:tiles) if(t.id>=0 && t.team!=team) return -1;
+    Pos target=feedTargetHead;
+    auto beacon=rallyReports.find(feedTargetId);
+    if(beacon!=rallyReports.end() && roundNo-beacon->second.second<=8) target=decodePos(beacon->second.first);
+    int distanceNow=distance(tiles[24].p,target),distanceFirst=distance(tiles[first.to].p,target);
+    if(distanceNow<5 || distanceFirst>=distanceNow) return -1;
+    for(const Tile &t:tiles) if(t.id>=0 && t.id!=id && t.team==team && distance(t.p,tiles[first.to].p)<=2) return -1;
+    int best=-1;double value=-1e20;
+    for(int d=0;d<4;d++) {
+        if(edge(first.to,d)!=".") continue;
+        int to=nextTile(first.to,d,false);
+        if(to<0 || tiles[to].id>=0 || headRisk(to)>=18 || avoided(code(tiles[first.to].p),d)) continue;
+        int nextDistance=distance(tiles[to].p,target);
+        if(nextDistance<3 || nextDistance>=distanceFirst || obstructsQueen(to)) continue;
+        bool crowded=false;
+        for(const Tile &t:tiles) if(t.id>=0 && t.id!=id && t.team==team && distance(t.p,tiles[to].p)<=2) crowded=true;
+        if(crowded || !pearlPathSafe({code(tiles[first.to].p),code(tiles[to].p)})) continue;
+        double score=-nextDistance*10+int(d==first.dir)*2-headRisk(to);
+        if(score>value) {value=score;best=d;}
+    }
+    return best;
+}
+
+int branchChildDirection(const vector<Move>& moves) {
+    if(roundNo>=300 || officialQueen() || length<5 || length>8 || units>=min(unitLimit,width*height/20) ||
+       role!=0 || roundNo-lastSplit<policy::SplitCooldown || !any_of(moves.begin(),moves.end(),safeMove) ||
+       terrainDegree(code(tiles[24].p))<3 || body.back().x<0) return -1;
+    int tail=local(body.back());if(tail<0 || terrainDegree(code(body.back()))<3) return -1;
+    int choices=0,best=-1;double value=-1e20;
+    for(int d=0;d<4;d++) {
+        if(edge(tail,d)!=".") continue;
+        int to=nextTile(tail,d,false);
+        if(to<0 || tiles[to].id>=0 || headRisk(to)>=18) continue;
+        array<bool,49> blocked{};for(int j=0;j<49;j++) blocked[j]=tiles[j].id>=0;
+        Region room=region(to,blocked,false);
+        if(room.exits==0 || (!room.frontier && room.area<6)) continue;
+        choices++;
+        double score=distance(tiles[to].p,tiles[24].p)*5+room.area+int(visits[code(tiles[to].p)]==0)*4;
+        if(score>value) {value=score;best=d;}
+    }
+    return choices>=2?best:-1;
+}
+
 void recordMove(const Move &m) {
-    previousEntry=code(tiles[24].p);previousDirection=m.dir;
-    updateCorridor(m);
+    Pos origin=body.empty() || body.front().x<0?tiles[24].p:body.front();
+    previousEntry=code(origin);previousDirection=m.dir;
+    if(origin==tiles[24].p) updateCorridor(m);
     if(m.portal) {
         portalUses++;
         portalLastUsed[m.portalId]=roundNo;
@@ -1605,7 +1786,8 @@ void recordMove(const Move &m) {
         lastPortalRound=roundNo;
     }
     if(m.to<0) { bearing=m.dir; body.clear(); return; }
-    int oldForward=nextTile(24,bearing);
+    int originLocal=local(origin);
+    int oldForward=originLocal<0?-1:nextTile(originLocal,bearing);
     // A sustained obstacle, explored strip, or nearby ally gives the next heading.
     if(m.dir!=bearing && (oldForward<0 || tiles[oldForward].id>=0 ||
         visits[code(tiles[oldForward].p)]>0 || separation(m.to)>separation(oldForward)+3)) bearing=m.dir;
@@ -1702,9 +1884,18 @@ int main() {
     for(auto &row:portalAt) row.fill(-1);
     while(readTurn()) {
         hasOutgoing=false; role=0;attackSplitRadio=false;
+        if(officialQueen() && spawnHome<0) {spawnHome=code(tiles[24].p);assemblyCenter=spawnHome;}
         observePortalArrival();
         if(turnsAlive==0 && length==2 && courierEntry<0 && terrainDegree(code(tiles[24].p))<=2) courierUntil=roundNo+16;
         int headKey=code(tiles[24].p); visits[headKey]++; lastVisit[headKey]=roundNo;
+        if(assemblyCenter>=0 && protectedLong()) {
+            bool threatened=false;
+            for(const Tile &t:tiles) if(t.head && t.team!=team && t.id>=0 &&
+                distance(t.p,decodePos(assemblyCenter))<=5) threatened=true;
+            array<bool,49> blocked{};for(int j=0;j<49;j++) blocked[j]=tiles[j].id>=0;
+            Region room=region(24,blocked,false);
+            if(threatened || (!room.frontier && room.area<length+4) || room.exits==0) assemblyCenter=-1;
+        }
         auto moves=legalMoves();
         bool guided=guideOutOfLoop(moves);
         bool courier=guideCourier(moves);
@@ -1751,6 +1942,9 @@ int main() {
                     sendPacket(HUNT,unsigned(code(body.back()))|(unsigned(enemy)<<12));
                     attackSplitRadio=true;
                 }
+            } else if(int fork=branchChildDirection(moves);!courier && fork>=0) {
+                splitSize=2;reason="BRANCH_SPLIT";
+                sendPacket(ESCAPE,unsigned(code(body.back()))|(4094u<<12)|(unsigned(fork)<<24),roundNo,true);
             } else if(!courier && role==0 && routineSplit(moves)) {
                 splitSize=2; reason="SCOUT_SPLIT_2";
             } else if(!moves.empty()) {
@@ -1788,15 +1982,20 @@ int main() {
             if(reason=="REVERSE_RESCUE" && feedTargetId==id && length-splitSize==2 && splitSize>=6) {
                 unsigned data=unsigned(code(body.back()))|(4095u<<12);
                 sendPacket(ESCAPE,data,roundNo,true);
-            } else if(reason!="SCOUT_SPLIT_2" && reason!="TAIL_AMBUSH_SPLIT") prepareEscapeRadio();
+            } else if(reason!="SCOUT_SPLIT_2" && reason!="TAIL_AMBUSH_SPLIT" && reason!="BRANCH_SPLIT") prepareEscapeRadio();
             cout<<"SPLIT "<<splitSize<<'\n';
             body.resize(length-splitSize); lastSplit=roundNo;
         } else {
-            cout<<"MOVE "<<DIRS[chosen.dir]<<'\n';
+            int second=donorSprint(chosen,reason);
+            cout<<"MOVE "<<DIRS[chosen.dir];
+            if(second>=0) cout<<DIRS[second];
+            cout<<'\n';
+            int secondTo=second<0?-1:nextTile(chosen.to,second,false);
             if(chosen.to>=0 || chosen.portal) recordMove(chosen);
+            if(second>=0) {Move next;next.dir=second;next.to=secondTo;recordMove(next);reason="DONOR_SPRINT";}
         }
         emitRadio();
-        cout<<"INDICATOR v10 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" target="<<feedTargetId<<" queen="<<officialQueenId<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<" resource="<<resourceGoal<<" official="<<officialQueenId<<" queen_dead="<<officialQueenDeath<<" quiet="<<quietEndgame()<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
+        cout<<"INDICATOR v11 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" target="<<feedTargetId<<" queen="<<officialQueenId<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<" resource="<<resourceGoal<<" official="<<officialQueenId<<" queen_dead="<<officialQueenDeath<<" home="<<assemblyCenter<<" spawn="<<spawnHome<<" quiet="<<quietEndgame()<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
         turnsAlive++;
     }
     return 0;

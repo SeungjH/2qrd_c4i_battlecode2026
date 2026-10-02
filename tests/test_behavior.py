@@ -43,7 +43,12 @@ class Client:
             out.append(line)
         actions=[s for s in out if s.startswith(('MOVE ','SPLIT '))]
         assert len(actions)==1
-        if actions[0].startswith('MOVE '):assert len(actions[0].split()[1])==1,actions
+        if actions[0].startswith('MOVE '):
+            steps=actions[0].split()[1]
+            assert len(steps)<=2,actions
+            if len(steps)==2:
+                assert int(block.split()[1])>=350 and int(block.split('LENGTH ')[1].split()[0])>=5
+                assert any('DONOR_SPRINT' in s for s in out),out
         else:
             split_size=int(actions[0].split()[1])
             assert 2<=split_size<=int(block.split('LENGTH ')[1].split('\n')[0])-2,actions
@@ -54,9 +59,9 @@ def once(body,owner=10,**kw):
     c=Client(owner);out=c.ask(frame(10,body,owner,echo=False,**kw));c.close();return out
 
 # Directional exploration must leave a single toroidal row, without short loops.
-c=Client();body=[(5,5),(4,5),(3,5)];seen=set(body[:1]);turns=0;previous='E'
+c=Client(owner=10);body=[(5,5),(4,5),(3,5)];seen=set(body[:1]);turns=0;previous='E'
 for r in range(200):
-    action,out=c.ask(frame(r,body,echo=r>0))
+    action,out=c.ask(frame(r,body,owner=10,echo=r>0))
     assert action.startswith('MOVE ')
     d=action[-1];dx,dy=OFF[DIR.index(d)]
     p=((body[0][0]+dx)%20,(body[0][1]+dy)%20)
@@ -109,3 +114,27 @@ assert a=='MOVE N',(a,out)
 assert any('PEARL_ROUTE' in line for line in out),out
 c.close();print('wall-detour pearl route: moves north toward reachable visible food')
 print('ALL BEHAVIOR REGRESSIONS PASSED')
+
+# Remote queen length report admits a free two-step donor move; post-action SONAR is accurate.
+c=Client(owner=10,w=32,h=20)
+b=[(10,10),(9,10),(8,10),(8,11),(9,11),(9,12)]
+block=frame(360,b,owner=10,w=32,h=20,pearls={(11,10),(12,10)},echo=False)
+raw=(0xD7<<56)|(7<<52)|(360<<27)|(10*64+18)|(8<<12)
+block=block.replace('NUM_MSGS 0','NUM_MSGS 1\n'+str(raw))
+a,out=c.ask(block)
+assert a=='MOVE EE',(a,out)
+statuses=[int(s.split()[2]) for s in out if s.startswith('SONAR ') and ((int(s.split()[2])>>52)&7)==0]
+assert statuses and all((p&4095)==10*64+12 and ((p>>12)&4095)==8 for p in statuses),out
+c.close();print('donor sprint: two starting-length free steps, two meals and correct final SONAR position/length')
+
+# The fixed queen's safe home is the spawn position, not its later roaming position.
+c=Client();b=[(5,5),(4,5),(3,5)]
+for rnd in range(200):
+ a,out=c.ask(frame(rnd,b,owner=0,echo=rnd>0))
+ assert a.startswith('MOVE ') and len(a.split()[1])==1,(a,out)
+ dx,dy=OFF[DIR.index(a[-1])];p=((b[0][0]+dx)%20,(b[0][1]+dy)%20)
+ assert p not in b,(rnd,b,p)
+ gap=max(min(abs(v-5),20-abs(v-5)) for v in p)
+ assert gap<=4,(rnd,p,gap,out)
+ b=[p]+b[:-1]
+c.close();print('queen home: 200 safe turns within four cells of the spawn, no routine splitting or sprint')

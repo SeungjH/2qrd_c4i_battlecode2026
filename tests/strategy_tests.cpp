@@ -13,7 +13,7 @@ void setup(int len=3,int r=100) {
     sharedPortalExit.clear();portalRouteLastSent.clear();warnings.clear();allies.clear();received.clear();
     warningSequence=0;
     attackChildEnemy=-1;attackChildUntil=-1;attackSplitRadio=false;
-    assemblyCenter=-1;donorTravelOwner=-1;donorBestDistance=1000;donorProgress=-1;donorCooldown=-1;
+    assemblyCenter=-1;spawnHome=-1;feedTargetSince=-1;rallyReports.clear();donorTravelOwner=-1;donorBestDistance=1000;donorProgress=-1;donorCooldown=-1;
     officialQueenId=-1;officialQueenDeath=-1;servingDonor=-1;servingUntil=-1;previousEntry=-1;previousDirection=-1;queenBadEdges.clear();
     allyReports.clear();resources.clear();reservedFood.clear();retiredUntil=-1;
     receiveConfirmed=false;receiveStarted=-1;receiveMeeting=-1;receivePearls.clear();
@@ -63,10 +63,10 @@ int main(int argc,char**argv) {
     } else if(test=="quiet_feeding") {
         setup(10,360);turnsAlive=80;rememberAllyReport(0,8,{13,12},roundNo);units=5;
         assert(quietEndgame() && donationCandidate());
-        lastEnemySeen=350;assert(!quietEndgame() && !donationCandidate());
+        lastEnemySeen=350;assert(!quietEndgame() && donationCandidate()); // Local corpse safety, not distant past enemies, gates the gift.
         lastEnemySeen=-100;units=2;assert(!donationCandidate());
         roundNo=470;rememberAllyReport(0,8,{13,12},roundNo);assert(donationCandidate());
-        cout<<"quiet R350 feeding expands donors, recent enemies restore caution passed\n";
+        cout<<"R350 queen feeding admits larger donors; recent enemies still require full local recovery passed\n";
     } else if(test=="short_loop") {
         setup();turnsAlive=40;visits[code(tiles[24].p)]=1;
         for(int j=0;j<24;j++) recentHeads.push_back(code({j%20,j/20}));
@@ -122,7 +122,8 @@ int main(int argc,char**argv) {
         cout<<"reversed child preserves fixed queen identity without a phantom warning passed\n";
     } else if(test=="donor_queue") {
         setup(2,420);ally(77,{{12,10},{12,11},{12,12},{13,12},{13,11},{13,10},{13,9},{13,8}},420);
-        ally(20,{{11,10},{11,11}},420);assert(!donorHasTurn());
+        ally(20,{{11,10},{11,11}},420);assert(donorHasTurn());
+        allies[20].role=1;assert(!donorHasTurn());
         allies[20].len=7;assert(donorHasTurn()); // Too long to donate to this queen.
         allies[20].len=2;
         servingDonor=id;servingUntil=426;assert(donorHasTurn());
@@ -482,5 +483,36 @@ int main(int argc,char**argv) {
         int j=local({11,10});tiles[j].id=-1;tiles[j].head=false;
         assert(favorableHeadTrade()<0);
         cout<<"new two-segment child trades only with a still-adjacent enemy head passed\n";
+    } else if(test=="donor_sprint") {
+        setup(6,360);turnsAlive=40;units=6;
+        for(auto &t:tiles) if(t.id==id) t=Tile{t.p};
+        body={{10,10},{9,10},{8,10},{8,11},{9,11},{9,12}};
+        for(int k=0;k<int(body.size());k++) {int j=local(body[k]);tiles[j].id=id;tiles[j].team=team;tiles[j].head=k==0;}
+        rememberAllyReport(0,8,{16,10},roundNo);role=1;
+        auto m=legalMoves();auto it=find_if(m.begin(),m.end(),[](const Move&m){return m.dir==1;});assert(it!=m.end());
+        Move first=*it;int second=donorSprint(first,"DONOR_SEEK");assert(second==1);
+        int to=nextTile(first.to,second,false);recordMove(first);Move step;step.dir=second;step.to=to;recordMove(step);
+        assert(body.front()==Pos({12,10}) && body.size()==6); // ceil(6/4)=2 free steps.
+        setup(4,360);rememberAllyReport(0,8,{16,10},roundNo);role=1;
+        m=legalMoves();assert(donorSprint(m.front(),"DONOR_SEEK")<0);
+        setup(6,360);id=0;role=1;assert(donorSprint(first,"DONOR_SEEK")<0);
+        setup(6,360);rememberAllyReport(0,8,{16,10},roundNo);role=1;
+        int j=local({12,10});tiles[j].id=22;tiles[j].team=team;
+        assert(donorSprint(first,"DONOR_SEEK")<0);
+        cout<<"late donor takes two free verified steps; queen, small and crowded cases reject sprint passed\n";
+    } else if(test=="fallback_feeding") {
+        setup(2,350);rememberAllyReport(77,4,{12,12},roundNo);
+        assert(feedTargetId==77 && donationCandidate());
+        rememberAllyReport(0,3,{13,13},roundNo);
+        assert(feedTargetId==0 && donationCandidate()); // Fixed queen always outranks length-4 fallback.
+        assert(eligibleDonor(id,12) && !eligibleDonor(id,13)); // Larger collectors may still feed the scoring queen.
+        cout<<"small fallback king can receive gifts; fixed queen retains absolute priority passed\n";
+    } else if(test=="corridor_gift") {
+        setup(2,420);ally(0,{{12,10},{12,11},{12,12},{13,12},{13,11},{13,10},{13,9},{13,8}},420);
+        int h=visibleHead(0);he[h/7][h%7]="w";ve[h/7][h%7+1]="w";
+        assert(collectionPlan(id,0,8).safe); // West remains safe; south is the queen's own body.
+        int j=local({11,10});tiles[j].id=90;tiles[j].team='B';tiles[j].head=true;
+        assert(!collectionPlan(id,0,8).safe);
+        cout<<"one-exit corridor admits a recoverable gift but rejects enemy contact passed\n";
     } else return 2;
 }
