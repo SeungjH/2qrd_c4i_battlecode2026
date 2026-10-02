@@ -10,7 +10,7 @@
 #include <vector>
 using namespace std;
 
-// Explorer v11. Each process controls exactly one dragon.
+// Explorer v12. Each process controls exactly one dragon.
 // Only admitted late donors may MOVE two free steps. Routine splits release two segments; emergency
 // reversal leaves the old head with two and sends the long rear away.
 namespace policy {
@@ -190,9 +190,9 @@ void rememberAllyReport(int owner,int len,Pos head,int stamp) {
 }
 bool reservedPearl(int key) {
     // A visible fixed queen reserves nearby food even when its SONAR beam missed us.
-    if(!officialQueen()) for(const Tile &t:tiles)
+    if(roundNo>=policy::SupportStart && !officialQueen()) for(const Tile &t:tiles)
         if(t.head && t.team==team && t.id<=1 && t.id>=0 && distance(decodePos(key),t.p)<=4) return true;
-    if(feedTargetFresh() && feedTargetId>=0 && feedTargetId<=1 && feedTargetId!=id) {
+    if(roundNo>=policy::SupportStart && feedTargetFresh() && feedTargetId>=0 && feedTargetId<=1 && feedTargetId!=id) {
         auto home=rallyReports.find(feedTargetId);
         if(home!=rallyReports.end() && roundNo-home->second.second<=20 &&
            homeDistance(decodePos(key),home->second.first)<=max(4,feedTargetLength/4+2)) return true;
@@ -205,7 +205,7 @@ bool reservedPearl(int key) {
 bool exclusivePearl(int key) {
     auto gift=reservedFood.find(key);
     if(gift!=reservedFood.end() && gift->second.second>=roundNo && gift->second.first!=id) return true;
-    if(!officialQueen()) for(const Tile &t:tiles)
+    if(roundNo>=policy::SupportStart && !officialQueen()) for(const Tile &t:tiles)
         if(t.head && t.team==team && t.id>=0 && t.id<=1 && distance(decodePos(key),t.p)<=4) return true;
     return feedTargetFresh() && feedTargetId>=0 && feedTargetId<=1 && feedTargetId!=id && reservedPearl(key);
 }
@@ -273,8 +273,9 @@ void receiveRadio() {
                 continue;
             }
             int key=p.payload&4095,len=(p.payload>>12)&4095;
-            if(len==0 && p.sender==officialQueenId && p.stamp>=feedTargetStamp) {
-                officialQueenDeath=p.stamp;allyReports.erase(p.sender);selectFeedTarget();
+            if(len==0 && p.sender<=1 && (officialQueenId<0 || p.sender==officialQueenId) && age<=policy::QueenReportAge &&
+               (!allyReports.count(p.sender) || p.stamp>=allyReports[p.sender].stamp)) {
+                officialQueenId=p.sender;officialQueenDeath=p.stamp;allyReports.erase(p.sender);selectFeedTarget();
                 retiredQueen=p;retiredUntil=roundNo+12;
             }
             if(validKey(key) && len>=2) rememberAllyReport(p.sender,len,decodePos(key),p.stamp);
@@ -1119,7 +1120,7 @@ bool eligibleDonor(int donorId,int donorLength) {
         return roundNo>=policy::SupportStart && feedTargetLength>=2 &&
             donorLength<=(roundNo<330?4:roundNo<350?6:12);
     }
-    if(roundNo<350 || feedTargetLength<4) return false;
+    if(officialQueenDeath<0 || roundNo<350 || feedTargetLength<4) return false;
     return feedTargetLength-donorLength>=2 ||
         (roundNo>=400 && donorLength==feedTargetLength && feedTargetId<donorId);
 }
@@ -1219,7 +1220,7 @@ bool coordinateDonation(vector<Move>& moves,Move &chosen,string &reason) {
     if(receiveDonor>=0) {
         donationTarget=-1;role=2;
         // Refresh actual donor positions while it lives. An OFFER is not a pearl.
-        if(freshAlly(receiveDonor)) {
+        if(freshAlly(receiveDonor) && visibleHead(receiveDonor)>=0) {
             auto parts=visibleBody(receiveDonor,allies[receiveDonor].len);
             receivePearls.clear();
             for(int k=0;k<int(parts.size());k+=2) receivePearls.push_back(code(tiles[parts[k]].p));
@@ -1995,7 +1996,7 @@ int main() {
             if(second>=0) {Move next;next.dir=second;next.to=secondTo;recordMove(next);reason="DONOR_SPRINT";}
         }
         emitRadio();
-        cout<<"INDICATOR v11 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" target="<<feedTargetId<<" queen="<<officialQueenId<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<" resource="<<resourceGoal<<" official="<<officialQueenId<<" queen_dead="<<officialQueenDeath<<" home="<<assemblyCenter<<" spawn="<<spawnHome<<" quiet="<<quietEndgame()<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
+        cout<<"INDICATOR v12 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" target="<<feedTargetId<<" queen="<<officialQueenId<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<" resource="<<resourceGoal<<" official="<<officialQueenId<<" queen_dead="<<officialQueenDeath<<" home="<<assemblyCenter<<" spawn="<<spawnHome<<" quiet="<<quietEndgame()<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
         turnsAlive++;
     }
     return 0;

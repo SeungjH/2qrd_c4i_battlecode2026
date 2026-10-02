@@ -14,7 +14,8 @@ void setup(int len=3,int r=100) {
     warningSequence=0;
     attackChildEnemy=-1;attackChildUntil=-1;attackSplitRadio=false;
     assemblyCenter=-1;spawnHome=-1;feedTargetSince=-1;rallyReports.clear();donorTravelOwner=-1;donorBestDistance=1000;donorProgress=-1;donorCooldown=-1;
-    officialQueenId=-1;officialQueenDeath=-1;servingDonor=-1;servingUntil=-1;previousEntry=-1;previousDirection=-1;queenBadEdges.clear();
+    // Legacy longest-mode fixtures start after a certified queen death.
+    officialQueenId=-1;officialQueenDeath=0;servingDonor=-1;servingUntil=-1;previousEntry=-1;previousDirection=-1;queenBadEdges.clear();
     allyReports.clear();resources.clear();reservedFood.clear();retiredUntil=-1;
     receiveConfirmed=false;receiveStarted=-1;receiveMeeting=-1;receivePearls.clear();
     spawnOneRound.fill(-100);harvestRound.fill(-100);harvestCount.fill(0);
@@ -385,10 +386,10 @@ int main(int argc,char**argv) {
         auto moves=legalMoves();Move chosen;string reason;
         coordinateDonation(moves,chosen,reason);
         for(auto &t:tiles) if(t.id==20) {t.id=-1;t.head=false;}
-        tiles[local({11,9})].pearl=1;allies.erase(20);received.clear();roundNo++;
+        tiles[local({11,9})].pearl=1;received.clear();roundNo++; // Stale living-donor STATUS must not erase the corpse.
         moves=legalMoves();coordinateDonation(moves,chosen,reason);
         assert(receiveConfirmed && reason=="RECEIVE_PEARLS");
-        cout<<"receiver follows observed corpse pearls passed\n";
+        cout<<"receiver follows corpse pearls despite retained donor STATUS passed\n";
     } else if(test=="quiet_partial_gift") {
         setup(6,360);turnsAlive=80;
         ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8},{9,9},{8,9}},360);
@@ -483,6 +484,26 @@ int main(int argc,char**argv) {
         int j=local({11,10});tiles[j].id=-1;tiles[j].head=false;
         assert(favorableHeadTrade()<0);
         cout<<"new two-segment child trades only with a still-adjacent enemy head passed\n";
+    } else if(test=="queen_consent") {
+        setup(2,400);officialQueenDeath=-1;rememberAllyReport(77,8,{12,10},400);
+        assert(!donationCandidate());
+        // A death certificate is compared to the queen's last life report,
+        // not to a newer unrelated receiver report.
+        inbox={from(0,QUEEN,unsigned(code({12,12})),398)};receiveRadio();
+        assert(officialQueenId==0 && officialQueenDeath==398 && donationCandidate());
+        setup(2,400);ally(0,{{12,10},{12,11},{12,12},{13,12},{13,11},{13,10},{13,9},{13,8}},400);
+        inbox={from(0,QUEEN,unsigned(code({12,10})),398)};receiveRadio();
+        assert(officialQueenDeath<0 && feedTargetId==0);
+        cout<<"unknown queen blocks fallback gifts; valid death enables them; stale death cannot override life passed\n";
+    } else if(test=="early_income") {
+        setup(3,100);rememberAllyReport(0,5,{12,10},100);
+        int pearl=local({11,10});tiles[pearl].pearl=true;
+        assert(!reservedPearl(code(tiles[pearl].p)));
+        auto moves=legalMoves();assert(any_of(moves.begin(),moves.end(),[&](const Move&m){return m.to==pearl && safeMove(m);}));
+        roundNo=350;rememberAllyReport(0,5,{12,10},350);
+        assert(reservedPearl(code(tiles[pearl].p)));
+        moves=legalMoves();assert(none_of(moves.begin(),moves.end(),[&](const Move&m){return m.to==pearl;}));
+        cout<<"queen region permits early scout food and reserves it during late feeding passed\n";
     } else if(test=="donor_sprint") {
         setup(6,360);turnsAlive=40;units=6;
         for(auto &t:tiles) if(t.id==id) t=Tile{t.p};
@@ -502,7 +523,9 @@ int main(int argc,char**argv) {
         cout<<"late donor takes two free verified steps; queen, small and crowded cases reject sprint passed\n";
     } else if(test=="fallback_feeding") {
         setup(2,350);rememberAllyReport(77,4,{12,12},roundNo);
-        assert(feedTargetId==77 && donationCandidate());
+        officialQueenDeath=-1;
+        assert(feedTargetId==77 && !donationCandidate());
+        officialQueenDeath=0;assert(donationCandidate());
         rememberAllyReport(0,3,{13,13},roundNo);
         assert(feedTargetId==0 && donationCandidate()); // Fixed queen always outranks length-4 fallback.
         assert(eligibleDonor(id,12) && !eligibleDonor(id,13)); // Larger collectors may still feed the scoring queen.

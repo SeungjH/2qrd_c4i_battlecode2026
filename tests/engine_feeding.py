@@ -95,6 +95,9 @@ for seed in (101,202,303):
  row={'seed':seed,'gifts':len(gifts),'queen_max':max(lengths,default=0),'queen_last':lengths[-1] if lengths else 0,'queen_deaths':queen_dead,'verified_gift_meals':len(recovered),'violations':violations}
  results.append(row);print(row,flush=True)
  assert not queen_dead and not violations,row
- assert len(gifts)>=3 and len(recovered)>=(10 if large else 6),row
- assert lengths[-1]>=(8 if fallback else 12),row
-print('PASS: multiple gifts recovered by the designated receiver, with no initial pearls and verified exclusive gift recovery')
+ if fallback:
+  assert not gifts and not recovered,row # An unseen death cannot authorize a fallback sacrifice.
+ else:
+  assert len(gifts)>=3 and len(recovered)>=(10 if large else 6),row
+  assert lengths[-1]>=12,row
+print('PASS: unseen queen death does not authorize fallback gifts' if fallback else 'PASS: multiple gifts recovered by the designated receiver, with no initial pearls and verified exclusive gift recovery')

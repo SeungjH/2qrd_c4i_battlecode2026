@@ -138,3 +138,18 @@ for rnd in range(200):
  assert gap<=4,(rnd,p,gap,out)
  b=[p]+b[:-1]
 c.close();print('queen home: 200 safe turns within four cells of the spawn, no routine splitting or sprint')
+
+# The same nearby recipient authorizes a fallback gift only after a queen death certificate.
+receiver=[(12,10),(12,11),(12,12),(13,12),(13,11),(13,10),(13,9),(13,8)]
+status=(0xD7<<56)|(77<<36)|(400<<27)|(10*64+12)|(8<<12)
+death=(0xD7<<56)|(7<<52)|(398<<27)|(12*64+12)
+for certified in (False,True):
+    c=Client(owner=10)
+    block=frame(400,[(10,10),(9,10)],owner=10,others=[(77,receiver)],echo=False)
+    msgs=[status,death] if certified else [status]
+    block=block.replace('NUM_MSGS 0',f'NUM_MSGS {len(msgs)}\n'+'\n'.join(map(str,msgs)))
+    action,out=c.ask(block);c.close()
+    sacrificed=any('DONATE_' in line for line in out)
+    assert sacrificed==certified,(certified,action,out)
+    if certified:assert action=='MOVE W',(action,out)
+print('fallback gift: full bot refuses unknown queen state and sacrifices after a valid death certificate')
