@@ -10,8 +10,12 @@ if ! git diff --quiet HEAD -- main.cpp bot.toml; then
     exit 1
 fi
 
-revision=$(git rev-parse --short=12 HEAD)
+version=$(sed -n '1s/^# Explorer \(v[0-9][0-9]*\).*/\1/p' README.md)
+if [ -z "$version" ]; then
+    printf '%s\n' 'Version not found in README.md.' >&2
+    exit 1
+fi
 mkdir -p dist
-archive="dist/submission-${revision}.zip"
+archive="dist/2qrd_${version}.zip"
 git archive --format=zip --output="$archive" HEAD -- main.cpp bot.toml
 printf 'Submission ZIP: %s/%s\n' "$repo_dir" "$archive"
