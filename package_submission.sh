@@ -18,4 +18,10 @@ fi
 mkdir -p dist
 archive="dist/2qrd_${version}.zip"
 git archive --format=zip --output="$archive" HEAD -- main.cpp bot.toml
+archive_bytes=$(wc -c < "$archive" | tr -d ' ')
+if [ "$archive_bytes" -ge 4000000 ]; then
+    printf '%s\n' 'Submission ZIP must be smaller than 4 MB.' >&2
+    rm -f "$archive"
+    exit 1
+fi
 printf 'Submission ZIP: %s/%s\n' "$repo_dir" "$archive"

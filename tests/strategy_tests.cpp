@@ -11,6 +11,11 @@ void setup(int len=3,int r=100) {
     portalPairs.clear(); knownPortalEdges.clear(); portalLastUsed.clear();
     sharedPortalExit.clear();portalRouteLastSent.clear();warnings.clear();allies.clear();received.clear();
     warningSequence=0;
+    attackChildEnemy=-1;attackChildUntil=-1;attackSplitRadio=false;
+    queenReports.clear();resources.clear();reservedFood.clear();retiredUntil=-1;
+    receiveConfirmed=false;receiveStarted=-1;receiveMeeting=-1;receivePearls.clear();
+    spawnOneRound.fill(-100);harvestRound.fill(-100);harvestCount.fill(0);
+    huntHeads.clear();huntEnemy=-1;huntCooldown=-1;foodRounds.clear();
     queenId=-1;queenLength=0;queenStamp=-100;queenLastSent=-100;hasOutgoing=false;
     corridorEntry=-1;courierUntil=-1;reverseChildUntil=-1;donationTarget=-1;receiveDonor=-1;
     for(int j=0;j<49;j++) { tiles[j]=Tile{}; tiles[j].p={7+j%7,7+j/7}; localAt[code(tiles[j].p)]=j; }
@@ -42,6 +47,12 @@ int main(int argc,char**argv) {
         for(Pos p:cycle) assert(goal!=code(p));
         assert(safeMove(m.front()));
         cout<<"two laps of a four-cell loop choose a reachable destination outside the loop passed\n";
+    } else if(test=="frontier_scout") {
+        setup();turnsAlive=10;visits.fill(0);visits[code(tiles[24].p)]=1;
+        for(const Tile &t:tiles) lastSeen[code(t.p)]=roundNo;
+        auto moves=legalMoves();assert(guideOutOfLoop(moves));
+        assert(navigating && goal>=0 && safeMove(moves.front()));
+        cout<<"scout seeks an observation frontier before revisiting any head position passed\n";
     } else if(test=="warnings") {
         setup(); addWarning(code(tiles[24].p),1,roundNo,true,true);
         auto m=legalMoves();assert(m.front().dir!=1);
@@ -57,16 +68,16 @@ int main(int argc,char**argv) {
         auto raw=from(2,STATUS,unsigned(code({11,10}))|(8u<<12),roundNo);inbox={raw};receiveRadio();assert(!allies.count(2));
         cout<<"newborn escape assignment, warning relay, nonvisible status rejection passed\n";
     } else if(test=="donation") {
-        setup(2,400);ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8}},400);
+        setup(2,360);ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8}},360);
         auto moves=legalMoves();Move chosen;string reason="EXPLORE";
         assert(collectionPlan(id,2,8).safe);
         assert(!coordinateDonation(moves,chosen,reason));assert(chosen.dir<0 && outgoing.type==OFFER);
         int stamp=offerStamp;
-        received={{ACCEPT,2,400,unsigned(id)|(unsigned(stamp)<<16)}};
+        received={{ACCEPT,2,360,unsigned(id)|(unsigned(stamp)<<16)}};
         assert(coordinateDonation(moves,chosen,reason));
         assert(reason=="DONATE_CONFIRMED" && chosen.dir==3); // own tail, not another head
         chosen=Move{};roundNo=349;assert(!coordinateDonation(moves,chosen,reason));
-        roundNo=401;received[0].payload=11;assert(!coordinateDonation(moves,chosen,reason));
+        roundNo=361;received[0].payload=11;assert(!coordinateDonation(moves,chosen,reason));
         cout<<"queen donation needs correct ACK, round >=350 and safe collection passed\n";
     } else if(test=="contested") {
         setup(2,400);ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8}},400);
@@ -86,7 +97,7 @@ int main(int argc,char**argv) {
         cout<<"receiver reserves one donor, never simultaneously donates passed\n";
     } else if(test=="late_donation") {
         setup(2,410);
-        ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8},{9,9},{8,9}},410);
+        ally(2,{{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8},{9,9},{8,9},{8,8}},410);
         assert(collectionPlan(id,2,10).safe);
         auto m=legalMoves();Move c;string reason;
         for(int r=410;r<=413;r++) {
@@ -106,10 +117,10 @@ int main(int argc,char**argv) {
     } else if(test=="hunt_timeout") {
         setup();units=4;ally(2,{{9,8},{8,8}},100);
         int enemy=local({12,10});tiles[enemy].id=99;tiles[enemy].team='B';tiles[enemy].head=true;
-        huntEnemy=99;huntSince=88;huntProgress=99;
-        received={{HUNT,2,100,99}};
+        huntEnemy=99;huntSince=70;huntProgress=99;
+        received={{HUNT,2,100,unsigned(code({12,10}))|(99u<<12)}};
         auto m=legalMoves();assert(!coordinateHunt(m));assert(huntEnemy<0 && huntCooldown==108);
-        cout<<"hunting stops after twelve rounds passed\n";
+        cout<<"hunting stops after thirty rounds passed\n";
     } else if(test=="split_radio") {
         setup(4);corridorEntry=code({8,10});corridorDir=1;
         ve[3][4]="w";he[3][3]="w";he[4][3]="w";rememberTerrain();
@@ -136,13 +147,13 @@ int main(int argc,char**argv) {
     } else if(test=="roles_and_income") {
         setup(4,100);turnsAlive=30;foodRounds.push_back(99);
         auto moves=legalMoves();assert(routineSplit(moves));
-        roundNo=320;foodRounds.push_back(319);assert(routineSplit(moves));
+        roundNo=320;foodRounds.push_back(319);assert(!routineSplit(moves));
         roundNo=420;assert(!routineSplit(moves));
-        foodRounds.push_back(419);assert(routineSplit(moves));
+        foodRounds.push_back(419);assert(!routineSplit(moves));
         setup(8,420);assert(protectedLong());
         auto rich=legalMoves();assert(!routineSplit(rich));
         setup(5,320);foodRounds={300,319};
-        auto productive=legalMoves();assert(routineSplit(productive));
+        auto productive=legalMoves();assert(!routineSplit(productive));
         foodRounds={319};assert(!routineSplit(productive));
         cout<<"early 2+2 scouts, income-gated late collectors and protected long dragon passed\n";
     } else if(test=="productive_loop") {
@@ -224,9 +235,9 @@ int main(int argc,char**argv) {
         queenId=id;double queenScore=evaluate(2,to).score;
         assert(reserved+90<queenScore);
         queenId=2;queenLength=8;queenHead={11,9};queenStamp=410;
-        assert(!coordinateDonation(moves,chosen,reason));
-        assert(donationTarget==2 && outgoing.type==OFFER);
-        cout<<"only the elected queen may receive an intentional donation passed\n";
+        assert(coordinateDonation(moves,chosen,reason));
+        assert(donationTarget==2 && reason=="DONATE_DIRECT" && chosen.dir==3);
+        cout<<"safe direct gift needs a fresh elected queen, not an ACK passed\n";
     } else if(test=="warning_queue") {
         setup(2,100);
         addWarning(code({10,10}),0,100,true);
@@ -268,5 +279,117 @@ int main(int argc,char**argv) {
         corridorEntry=code(body.back());moves=legalMoves();
         assert(pocketEscapeSplit(moves));
         cout<<"three-pearl pocket can be entered and a length-three tail can escape passed\n";
+    } else if(test=="failed_gift") {
+        setup(8,400);rememberQueen(id,length,tiles[24].p,roundNo);
+        ally(20,{{11,9},{12,9}},400);
+        received={{OFFER,20,400,unsigned(id)}};
+        auto moves=legalMoves();Move chosen;string reason;
+        coordinateDonation(moves,chosen,reason);
+        assert(receiveDonor==20 && !receiveConfirmed && reason=="RECEIVE_WAIT");
+        received.clear();
+        for(int r=401;r<=408;r++) {
+            roundNo=r;hasOutgoing=false;role=0;reason="EXPLORE";
+            coordinateDonation(moves,chosen,reason);
+            assert(reason!="RECEIVE_PEARLS");
+        }
+        assert(receiveDonor<0 && receivePearls.empty());
+        cout<<"unfulfilled offer never becomes phantom food and expires passed\n";
+    } else if(test=="real_gift") {
+        setup(8,400);rememberQueen(id,length,tiles[24].p,roundNo);
+        ally(20,{{11,9},{12,9}},400);
+        received={{OFFER,20,400,unsigned(id)}};
+        auto moves=legalMoves();Move chosen;string reason;
+        coordinateDonation(moves,chosen,reason);
+        for(auto &t:tiles) if(t.id==20) {t.id=-1;t.head=false;}
+        tiles[local({11,9})].pearl=1;allies.erase(20);received.clear();roundNo++;
+        moves=legalMoves();coordinateDonation(moves,chosen,reason);
+        assert(receiveConfirmed && reason=="RECEIVE_PEARLS");
+        cout<<"receiver follows observed corpse pearls passed\n";
+    } else if(test=="partial_gift") {
+        setup(6,410);
+        ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8},{9,9},{8,9}},410);
+        assert(local(body.back())<0 && collectionPlan(id,2,10).safe);
+        auto moves=legalMoves();Move chosen;string reason;
+        assert(!coordinateDonation(moves,chosen,reason) && outgoing.type==OFFER);
+        cout<<"safe partial gift does not need the whole donor inside vision passed\n";
+    } else if(test=="queen_update") {
+        setup(2,420);
+        rememberQueen(77,20,{13,12},400);rememberQueen(88,12,{12,12},401);
+        assert(queenId==77);
+        rememberQueen(77,2,{13,12},402);assert(queenId==88);
+        rememberQueen(77,20,{13,12},400);assert(queenId==88);
+        setup(2,360);inbox={from(77,QUEEN,unsigned(code({13,12}))|(5u<<12),359)};
+        receiveRadio();assert(queenId==77 && queenLength==5);
+        emitRadio();assert(outgoing.type==QUEEN && outgoing.stamp==359);
+        cout<<"small queen reports relay; newer shrinkage defeats stale length passed\n";
+    } else if(test=="far_donor") {
+        setup(2,420);rememberQueen(77,10,{18,14},420);
+        auto moves=legalMoves();Move chosen;string reason;
+        assert(distance(tiles[24].p,queenHead)>10);
+        assert(!coordinateDonation(moves,chosen,reason));
+        assert(role==1 && reason=="DONOR_SEEK" && donationTarget<0);
+        cout<<"sonar length starts donor travel beyond the old ten-tile limit passed\n";
+    } else if(test=="resource_share") {
+        setup(2,100);tiles[local({12,10})].countdown=1;
+        rememberTerrain();assert(resources.empty());
+        roundNo++;rememberTerrain();assert(resources[code({12,10})].fountain);
+        auto moves=legalMoves();assert(guideToResource(moves));
+        emitRadio();assert(outgoing.type==PORTAL_ROUTE_PACKET && (outgoing.payload&(1u<<26)));
+        auto report=outgoing;setup(2,103);
+        inbox={from(77,report.type,report.payload,report.stamp)};receiveRadio();
+        assert(resources[code({12,10})].stamp==101 && sharedPortalExit.empty());
+        emitRadio();assert(outgoing.stamp==101);
+        roundNo=162;inbox.clear();receiveRadio();assert(resources.empty());
+        cout<<"fountain detection, relay provenance and expiry passed\n";
+    } else if(test=="hunt_extended") {
+        setup();units=4;ally(2,{{10,8},{9,8}},100);
+        int enemy=local({12,9});tiles[enemy].id=99;tiles[enemy].team='B';tiles[enemy].head=true;
+        huntEnemy=99;huntSince=88;huntProgress=99;
+        received={{HUNT,2,100,unsigned(code({12,9}))|(99u<<12)|(1u<<26)}};
+        auto moves=legalMoves();assert(coordinateHunt(moves));
+        assert(outgoing.type==HUNT && int((outgoing.payload>>12)&4095)==99);
+        assert(int((outgoing.payload>>24)&3)!=0);
+        cout<<"productive hunt survives twelve turns and honors a teammate exit claim passed\n";
+    } else if(test=="long_lookahead") {
+        setup(8,420);
+        for(int x=11;x<=12;x++) {he[3][x-7]="w";he[4][x-7]="w";}
+        ve[3][6]="w";rememberTerrain();
+        auto move=evaluate(1,local({11,10}));
+        assert(!move.sustainable && !safeMove(move));
+        cout<<"long queen rejects a move that closes after later tail steps passed\n";
+    } else if(test=="queen_guard") {
+        setup(2,420);units=6;queenId=77;queenLength=12;queenHead={9,10};queenStamp=420;
+        for(Pos p:vector<Pos>{{11,10},{11,9},{12,9},{13,9},{13,8},{12,8}}) {
+            int j=local(p);tiles[j].id=90;tiles[j].team='B';tiles[j].head=p==Pos{11,10};
+        }
+        assert(favorableHeadTrade()==1);
+        queenHead={2,2};assert(favorableHeadTrade()<0);
+        cout<<"late short guards may trade against a large enemy threatening their queen passed\n";
+    } else if(test=="tail_ambush") {
+        setup(5,100);units=4;
+        for(auto &t:tiles) if(t.id==id) {t.id=-1;t.head=false;}
+        body={{10,10},{10,11},{10,12},{10,13},{10,14}};
+        for(int k=0;k<5;k++) {
+            int j=local(body[k]);if(j<0) continue;
+            tiles[j].id=id;tiles[j].team=team;tiles[j].head=k==0;tiles[j].dir=0;
+        }
+        for(int y=10;y<=13;y++) {
+            int j=local({11,y});tiles[j].id=20;tiles[j].team='B';tiles[j].head=y==13;tiles[j].dir=2;
+        }
+        auto moves=legalMoves();assert(tailAmbushEnemy(moves)==20);
+        for(auto &t:tiles) if(t.id==20) t.id=5; // Enemy already acted: do not extrapolate twice.
+        assert(tailAmbushEnemy(moves)<0);
+        cout<<"tail split anticipates a later-ID enemy beside a remote tail passed\n";
+    } else if(test=="ambush_child") {
+        setup(2,100);id=30;units=3;turnsAlive=0;courierUntil=116;role=3;
+        for(auto &t:tiles) if(t.id==10) t.id=id;
+        ally(10,{{8,11},{8,10}},100);
+        for(Pos p:vector<Pos>{{11,10},{11,9},{12,9},{13,9}}) {
+            int j=local(p);tiles[j].id=99;tiles[j].team='B';tiles[j].head=p==Pos{11,10};
+        }
+        assert(newbornAmbush() && favorableHeadTrade()==1);
+        int j=local({11,10});tiles[j].id=-1;tiles[j].head=false;
+        assert(favorableHeadTrade()<0);
+        cout<<"new two-segment child trades only with a still-adjacent enemy head passed\n";
     } else return 2;
 }
