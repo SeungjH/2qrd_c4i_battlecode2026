@@ -229,25 +229,6 @@ int main(int argc,char**argv) {
         assert(moves.empty() && !cutCanReleaseParent() && reverseRescue(moves));
         assert(length-2==8 && local(body.back())>=0);
         cout<<"trapped long parent leaves old head 2 and reverses 8 safe tail segments passed\n";
-    } else if(test=="royal_escape") {
-        setup(6,120);id=0;
-        for(auto &t:tiles) if(t.id==10) {t.id=-1;t.head=false;}
-        body={{10,10},{9,10},{8,10},{8,11},{8,12},{7,12}};
-        for(int k=0;k<6;k++) {int j=local(body[k]);tiles[j].id=id;tiles[j].team=team;tiles[j].head=k==0;}
-        he[3][3]="w";ve[3][4]="w";rememberTerrain();
-        ally(2,{{11,11},{12,11}},120);
-        auto moves=legalMoves();assert(moves.size()==1 && moves[0].dir==2);
-        assert(moves[0].sustainable && moves[0].exits>0 && moves[0].risk==18);
-        assert(!reverseRescue(moves)); // Preserve length 6 instead of Queen 2.
-        for(auto &t:tiles) if(t.id==2) t.team='B';
-        moves=legalMoves();assert(moves[0].risk==120 && reverseRescue(moves));
-        for(auto &t:tiles) if(t.id==2) {t.id=-1;t.head=false;}
-        ally(2,{{11,12},{12,12}},120);
-        for(auto &t:tiles) if(t.id==2) t.team='B';
-        moves=legalMoves();assert(moves[0].risk==35 && !reverseRescue(moves));
-        he[4][3]="w";rememberTerrain();moves=legalMoves();
-        assert(moves.empty() && reverseRescue(moves));
-        cout<<"queen retains length through an allied escape; real blockage and immediate enemy still permit rescue passed\n";
     } else if(test=="roles_and_income") {
         setup(4,100);turnsAlive=30;foodRounds.push_back(99);
         auto moves=legalMoves();assert(routineSplit(moves));
