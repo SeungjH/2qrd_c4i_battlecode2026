@@ -42,7 +42,33 @@ unsigned long long from(int owner,int type,unsigned data,int stamp) {
 }
 int main(int argc,char**argv) {
     assert(argc==2); string test=argv[1];
-    if(test=="unsafe_pearl_path") {
+    if(test=="body_memory") {
+        setup(8);
+        auto old=body;syncBody();assert(body==old && local(body.back())<0);
+        Move m;m.dir=1;m.to=local({11,10});recordMove(m);
+        assert(body.size()==8 && body.back()==old[6]);
+        // An unknown portal preserves the old rear, both with and without food.
+        setup(6);old=body;m.to=-1;recordMove(m);
+        for(auto &t:tiles) t.id=-1;tiles[24].p={2,2};syncBody();
+        assert(body.size()==6 && body[1]==old[0] && body.back()==old[4]);
+        setup(6);old=body;recordMove(m);length=7;for(auto &t:tiles) t.id=-1;tiles[24].p={2,2};syncBody();
+        assert(body.size()==7 && body.back()==old.back());
+        // Both four and six can reverse out; six has an offscreen tail.
+        for(int len:{4,6}) {
+            setup(len);id=10;
+            ve[3][4]="w";he[3][3]="w";he[4][3]="w";
+            rememberTerrain();
+            for(int y=0;y<20;y++) for(int x=0;x<20;x++) for(int d=0;d<4;d++) {
+                int k=code({x,y});
+                if(terrain[k][d]==-2) terrain[k][d]=code({wrap(x+DC[d],20),wrap(y+DR[d],20)});
+            }
+            assert(reverseRescue({}) && length-(length-2)==2);
+            Move safe;safe.sustainable=true;safe.exits=1;safe.risk=0;
+            assert(!reverseRescue({safe}));
+            units=unitLimit;assert(!reverseRescue({}));
+        }
+        cout<<"body memory, hidden tail and 4/6 reversal passed\n";
+    } else if(test=="unsafe_pearl_path") {
         setup(3,100);turnsAlive=40;
         for(auto &t:tiles) if(t.id==id) t=Tile{t.p};
         body={{10,10},{10,11},{9,11}};
@@ -226,7 +252,9 @@ int main(int argc,char**argv) {
         }
         ve[3][4]="w"; // The only non-body direction from the old head is a wall.
         auto moves=legalMoves();
-        assert(moves.empty() && !cutCanReleaseParent() && reverseRescue(moves));
+        assert(!physicallyTrapped() && !reverseRescue(moves)); // Tail vacates: no discard.
+        tiles[local(body.back())].pearl=1; // Now the tail cannot vacate on entry.
+        assert(physicallyTrapped() && !cutCanReleaseParent() && reverseRescue(moves));
         assert(length-2==8 && local(body.back())>=0);
         cout<<"trapped long parent leaves old head 2 and reverses 8 safe tail segments passed\n";
     } else if(test=="roles_and_income") {
@@ -276,7 +304,7 @@ int main(int argc,char**argv) {
         auto route=find_if(known.begin(),known.end(),[](const Move&m){return m.portal;});
         assert(route!=known.end() && safeMove(*route));
         portalUses=5;recordMove(*route);
-        assert(portalUses==6 && !portalReady(7) && body.empty());
+        assert(portalUses==6 && !portalReady(7) && body.front().x<0 && body.size()==size_t(length+1));
         auto cooling=legalMoves();
         assert(find_if(cooling.begin(),cooling.end(),[](const Move&m){return m.portal;})==cooling.end());
         assert(emergencyPortalDirection()==1);

@@ -10,7 +10,7 @@
 #include <vector>
 using namespace std;
 
-// Explorer v12. Each process controls exactly one dragon.
+// Explorer v13. Each process controls exactly one dragon.
 // Only admitted late donors may MOVE two free steps. Routine splits release two segments; emergency
 // reversal leaves the old head with two and sends the long rear away.
 namespace policy {
@@ -33,6 +33,7 @@ static string he[8][7],ve[7][8];
 static map<int,vector<Portal>> portalPairs;
 static array<int,4096> visits{}, lastVisit{}, lastSeen{}, localAt{};
 static vector<Pos> body; // Head to tail; unknown initial segments have x=-1.
+static bool discardTrappedHead=false;
 static int width,height,id,unitLimit,roundNo,length,units,facing;
 static int bearing=-1,hand=1,turnsAlive=0,lastSplit=-100,portalUses=0;
 static char team;
@@ -316,7 +317,7 @@ void receiveRadio() {
                 continue;
             }
             // Reserved entry 4095 tells the reversed child to leave; it does not transfer queen identity.
-            if(turnsAlive<=1 && p.sender<id && child==code(tiles[24].p) && entry==4095 && length>=6) {
+            if(turnsAlive<=1 && p.sender<id && child==code(tiles[24].p) && entry==4095 && length>=2) {
                 reverseChildUntil=roundNo+2;bearing=facing;
                 continue;
             }
@@ -439,8 +440,10 @@ int nextTile(int at,int d,bool respectCooldown=true) {
 }
 
 void syncBody() {
-    if(int(body.size())!=length || (body.size() && !(body[0]==tiles[24].p)))
-        body.assign(length,Pos{});
+    // A portal can hide the new head while the known rear remains intact.
+    if(!body.empty() && body[0].x>=0 && !(body[0]==tiles[24].p))
+        body.clear();
+    body.resize(length);
     body[0]=tiles[24].p;
     array<bool,49> used{}; used[24]=true;
     int predecessor=24;
@@ -449,6 +452,8 @@ void syncBody() {
         for(int j=0;j<49;j++) if(!used[j] && tiles[j].id==id && !tiles[j].head &&
             nextTile(j,tiles[j].dir,false)==predecessor) { found=j; break; }
         if(found<0) break;
+        if(body[k].x>=0 && !(body[k]==tiles[found].p))
+            fill(body.begin()+k,body.end(),Pos{});
         body[k]=tiles[found].p; used[found]=true; predecessor=found;
     }
 }
@@ -1468,7 +1473,7 @@ int favorableHeadTrade() {
 }
 void emitRadio() {
     int postLength=int(body.size());
-    if(postLength<2) postLength=length;
+    if(postLength<2 || (!body.empty() && body.front().x<0)) postLength=length;
     Pos head=body.empty()?tiles[24].p:body.front();
     if(head.x<0) head=tiles[24].p;
     rememberAllyReport(id,postLength,head,roundNo);
@@ -1574,8 +1579,19 @@ bool cutCanReleaseParent() {
     return false;
 }
 
+bool physicallyTrapped() {
+    for(int d=0;d<4;d++) {
+        if(edge(24,d)=="w") continue;
+        int to=nextTile(24,d,false);
+        if(to<0) return false; // An unobserved portal is not a proven dead end.
+        if(tiles[to].id<0) return false;
+        if(!body.empty() && tiles[to].p==body.back() && !tiles[to].pearl) return false;
+    }
+    return true;
+}
 bool reverseRescue(const vector<Move>& moves) {
-    if(length<6 || units>=unitLimit || int(body.size())!=length ||
+    if(!physicallyTrapped()) return false;
+    if(length<4 || units>=unitLimit || int(body.size())!=length ||
        body.back().x<0 || cutCanReleaseParent()) return false;
     // A merely narrow but still open route is not a reason to shed two segments.
     for(const Move &m:moves) if(m.sustainable && m.exits>0 && m.risk<18) return false;
@@ -1586,13 +1602,12 @@ bool reverseRescue(const vector<Move>& moves) {
     }
     if(!ownWall) return false;
     int tail=local(body.back());
-    if(tail<0) {
-        if(!protectedLong()) return false;
+    auto mappedTailEscape=[&]() {
         int key=code(body.back());
         array<bool,4096> occupied{};
         for(Pos p:body) if(p.x>=0) occupied[code(p)]=true;
         for(const Tile &t:tiles) if(t.id>=0) occupied[code(t.p)]=true;
-        // A trapped queen may reverse its whole rear using previously observed terrain.
+        // Any trapped dragon may reverse its rear using previously observed terrain.
         // Remote occupancy remains uncertain; this is preferable to repeated blind cuts.
         for(int d=0;d<4;d++) {
             int to=terrain[key][d];
@@ -1609,7 +1624,8 @@ bool reverseRescue(const vector<Move>& moves) {
             if(room>=min(length+2,24)) return true;
         }
         return false;
-    }
+    };
+    if(tail<0) return mappedTailEscape();
     // The reversed child's head is the old tail. Verify its first step, including
     // occupancy and an exit beyond that step, before spending a split action.
     for(int d=0;d<4;d++) {
@@ -1619,9 +1635,10 @@ bool reverseRescue(const vector<Move>& moves) {
         Region r=region(to,afterMove(to),false);
         if(r.frontier || r.area>=min(length+2,20)) return true;
     }
-    return false;
+    return mappedTailEscape();
 }
 bool pocketEscapeSplit(const vector<Move>& moves) {
+    if(!physicallyTrapped()) return false;
     if(officialQueen()) return false;
     if(length<5 || length>8 || units>=unitLimit || corridorEntry<0 ||
        int(body.size())!=length || body.back().x<0 ||
@@ -1786,7 +1803,13 @@ void recordMove(const Move &m) {
         lastPortalId=m.portalId;
         lastPortalRound=roundNo;
     }
-    if(m.to<0) { bearing=m.dir; body.clear(); return; }
+    if(m.to<0) {
+        bearing=m.dir;
+        // Preserve the rear through an unobserved portal. Growth is reconciled
+        // against next turn's length, so keep the old tail until observation.
+        body.insert(body.begin(),Pos{});
+        return;
+    }
     int originLocal=local(origin);
     int oldForward=originLocal<0?-1:nextTile(originLocal,bearing);
     // A sustained obstacle, explored strip, or nearby ally gives the next heading.
@@ -1885,6 +1908,12 @@ int main() {
     for(auto &row:portalAt) row.fill(-1);
     while(readTurn()) {
         hasOutgoing=false; role=0;attackSplitRadio=false;
+        if(discardTrappedHead) {
+            // No action kills this two-segment parent in place, without hitting
+            // another dragon. The reversed child is controlled independently.
+            cout<<"INDICATOR v13 DISCARD_TRAPPED_HEAD_2\nPROTOCOL 3\nENDTURN\n"<<flush;
+            continue;
+        }
         if(officialQueen() && spawnHome<0) {spawnHome=code(tiles[24].p);assemblyCenter=spawnHome;}
         observePortalArrival();
         if(turnsAlive==0 && length==2 && courierEntry<0 && terrainDegree(code(tiles[24].p))<=2) courierUntil=roundNo+16;
@@ -1927,10 +1956,10 @@ int main() {
         }
         if(chosen.dir<0) {
             bool canSplit=length>=4 && units<unitLimit;
-            if(canSplit && pocketEscapeSplit(moves)) {
-                splitSize=3;reason="POCKET_ESCAPE_3";
-            } else if(canSplit && reverseRescue(moves)) {
+            if(canSplit && reverseRescue(moves)) {
                 splitSize=length-2; reason="REVERSE_RESCUE";
+            } else if(canSplit && pocketEscapeSplit(moves)) {
+                splitSize=length-2;reason="POCKET_ESCAPE_TWO_RETAINED";
             } else if(moves.empty() && emergencyPortalDirection()>=0) {
                 chosen.dir=emergencyPortalDirection(); chosen.portal=true;
                 chosen.portalId=stoi(edge(24,chosen.dir)); reason="LAST_RESORT_PORTAL";
@@ -1980,7 +2009,8 @@ int main() {
         if(splitSize) {
             if(protectedLong() && previousEntry>=0 && previousDirection>=0)
                 queenBadEdges[previousEntry*4+previousDirection]=roundNo+80;
-            if(reason=="REVERSE_RESCUE" && feedTargetId==id && length-splitSize==2 && splitSize>=6) {
+            if(reason=="REVERSE_RESCUE" || reason=="POCKET_ESCAPE_TWO_RETAINED") {
+                discardTrappedHead=true;
                 unsigned data=unsigned(code(body.back()))|(4095u<<12);
                 sendPacket(ESCAPE,data,roundNo,true);
             } else if(reason!="SCOUT_SPLIT_2" && reason!="TAIL_AMBUSH_SPLIT" && reason!="BRANCH_SPLIT") prepareEscapeRadio();
@@ -1996,7 +2026,7 @@ int main() {
             if(second>=0) {Move next;next.dir=second;next.to=secondTo;recordMove(next);reason="DONOR_SPRINT";}
         }
         emitRadio();
-        cout<<"INDICATOR v12 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" target="<<feedTargetId<<" queen="<<officialQueenId<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<" resource="<<resourceGoal<<" official="<<officialQueenId<<" queen_dead="<<officialQueenDeath<<" home="<<assemblyCenter<<" spawn="<<spawnHome<<" quiet="<<quietEndgame()<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
+        cout<<"INDICATOR v13 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" target="<<feedTargetId<<" queen="<<officialQueenId<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<" resource="<<resourceGoal<<" official="<<officialQueenId<<" queen_dead="<<officialQueenDeath<<" home="<<assemblyCenter<<" spawn="<<spawnHome<<" quiet="<<quietEndgame()<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
         turnsAlive++;
     }
     return 0;
