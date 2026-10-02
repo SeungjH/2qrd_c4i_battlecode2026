@@ -10,7 +10,7 @@
 #include <vector>
 using namespace std;
 
-// Explorer v9. Each process controls exactly one dragon.
+// Explorer v10. Each process controls exactly one dragon.
 // MOVE has one direction. Routine splits release two segments; emergency
 // reversal leaves the old head with two and sends the long rear away.
 namespace policy {
@@ -52,6 +52,9 @@ struct Resource { int stamp=-100,score=0,lastSent=-100; bool fountain=false; };
 static map<int,Resource> resources;
 static array<int,4096> spawnOneRound{},harvestRound{},harvestCount{};
 static int resourceGoal=-1;
+static array<int,4096> pearlCooldown{};
+static int escapeLockUntil=-1,lastEnemySeen=-100,pearlSearchBudget=256;
+bool quietEndgame() { return roundNo>=350 && turnsAlive>=80 && roundNo-lastEnemySeen>=80; }
 
 
 int wrap(int n,int m) { return (n%m+m)%m; }
@@ -668,6 +671,8 @@ bool guideOutOfLoop(vector<Move>& moves) {
         if(same) { shortCycle=true; break; }
     }
     bool repeating=shortCycle || (recentHeads.size()>=16 && unique.size()*3<=recentHeads.size()*2);
+    if(repeating && !recentIncome() && turnsAlive>=escapeLockUntil)
+        escapeLockUntil=turnsAlive+8;
     if(!recentIncome() && (repeating || turnsAlive-lastNewTurn>=28)) navigateUntil=turnsAlive+24;
     if(recentIncome()) navigateUntil=-1;
     // New head positions can still skirt the same outer strip. Scouts seek
@@ -804,16 +809,47 @@ int routeDirection(const vector<Move>& moves,int destination) {
     }
     return -1;
 }
+// Simulate the complete route, including tail retention on every visible meal.
+// Foreign bodies are fixed for this short prediction; unknown cells remain uncertain.
+bool pearlPathSafe(const vector<int>& path) {
+    vector<int> trail;
+    // Incomplete initial body memory is uncertainty, not proof of an unsafe meal.
+    for(Pos p:body) {if(p.x<0) return true;trail.push_back(code(p));}
+    array<bool,4096> others{};
+    for(const Tile &t:tiles) if(t.id>=0 && t.id!=id) others[code(t.p)]=true;
+    array<bool,49> eaten{};
+    for(int next:path) {
+        if(others[next] || find(trail.begin(),trail.end(),next)!=trail.end()) return false;
+        trail.insert(trail.begin(),next);
+        int j=local(decodePos(next));bool food=j>=0 && tiles[j].pearl && !eaten[j];
+        if(food) eaten[j]=true;else trail.pop_back();
+    }
+    int target=local(decodePos(trail.front()));
+    if(target<0) return false;
+    array<bool,49> blocked{};
+    for(int j=0;j<49;j++) blocked[j]=others[code(tiles[j].p)];
+    for(int key:trail) {int j=local(decodePos(key));if(j>=0) blocked[j]=true;}
+    Region terminal=region(target,blocked,false);
+    int beforeMeal=int(trail.size())-1;
+    bool protect=officialQueen() || (roundNo>=400 && beforeMeal>=8) || (roundNo>=350 && beforeMeal>=16);
+    int needed=protect?min(beforeMeal+6,32):beforeMeal>=8?min(beforeMeal+6,24):min(beforeMeal+2,14);
+    if(terminal.exits==0 || (!terminal.frontier && terminal.area<needed)) return false;
+    if(!protect) return true; // Scouts retain their existing emergency-split option.
+    return longContinuation(trail,others,eaten,6,pearlSearchBudget);
+}
 // Route to a visible pearl through known open edges, even when a wall makes
 // its Manhattan distance misleading. The first step must remain safe.
 bool guideToPearl(vector<Move>& moves) {
+    pearlSearchBudget=256;
     if(moves.empty()) return false;
-    array<bool,4096> blocked{};
+    for(const Move &m:moves) if(m.to>=0 && tiles[m.to].pearl && !safeMove(m))
+        pearlCooldown[code(tiles[m.to].p)]=roundNo+24;
+    static array<bool,4096> blocked;blocked.fill(false);
     for(const Tile &t:tiles) if(t.id>=0) blocked[code(t.p)]=true;
     for(Pos p:body) if(p.x>=0) blocked[code(p)]=true;
     int here=code(tiles[24].p);blocked[here]=false;
-    array<int,4096> first,dist;first.fill(-1);dist.fill(-1);
-    array<int,4096> q{};int begin=0,end=0,best=-1,bestDist=11;
+    static array<int,4096> first,dist,parent;first.fill(-1);dist.fill(-1);parent.fill(-1);
+    static array<int,4096> q;int begin=0,end=0,best=-1,bestDist=11;
     q[end++]=here;dist[here]=0;
     while(begin<end) {
         int at=q[begin++];
@@ -823,10 +859,14 @@ bool guideToPearl(vector<Move>& moves) {
             if(at==here && none_of(moves.begin(),moves.end(),[&](const Move&m){return m.dir==d && safeMove(m);})) continue;
             int to=terrain[at][d];
             if(to<0 || blocked[to] || dist[to]>=0) continue;
-            dist[to]=dist[at]+1;first[to]=at==here?d:first[at];q[end++]=to;
+            dist[to]=dist[at]+1;first[to]=at==here?d:first[at];parent[to]=at;q[end++]=to;
             int j=local(decodePos(to));
             if(j<0 || !tiles[j].pearl || dist[to]>=bestDist) continue;
-            if(reservedPearl(to)) continue;
+            if(reservedPearl(to) || roundNo<pearlCooldown[to]) continue;
+            vector<int> path;
+            for(int at=to;at!=here;at=parent[at]) path.push_back(at);
+            reverse(path.begin(),path.end());
+            if(!pearlPathSafe(path)) {pearlCooldown[to]=roundNo+24;continue;}
             best=to;bestDist=dist[to];
         }
     }
@@ -924,7 +964,7 @@ Collection collectionPlan(int donor,int receiver,int receiverLength) {
         if(r.dist[at]<plan.dist) { plan.dist=r.dist[at]; plan.closest=at; }
     }
     int expected=(donorLength+1)/2;
-    int required=roundNo<400?expected:max(1,(expected+1)/2);
+    int required=roundNo<400 && !quietEndgame()?expected:max(1,(expected+1)/2);
     if(plan.closest<0 || plan.dist>5 || plan.count<required ||
        roundNo+plan.dist+plan.count*2+2>=500) return plan;
     if(!r.frontier && r.area<receiverLength+plan.count+3) return plan;
@@ -975,13 +1015,15 @@ bool eligibleDonor(int donorId,int donorLength) {
         // Fixed queen outranks a longer collector. Grow it progressively,
         // preserving most scouts until the collection phase.
         return roundNo>=policy::SupportStart && feedTargetLength>=2 &&
-            donorLength<=(roundNo<330?4:roundNo<400?6:12);
+            donorLength<=(quietEndgame()?12:roundNo<330?4:roundNo<400?6:12);
     }
     if(feedTargetLength<=donorLength) return false;
-    if(roundNo<400) return donorLength<=6 && feedTargetLength>=8;
+    if(roundNo<400) return donorLength<=(quietEndgame()?12:6) && feedTargetLength>=8;
     return feedTargetLength-donorLength>=3 || (donorLength<=3 && feedTargetLength>=4);
 }
 bool donationCandidate() {
+    // Keep a collector beside the queen until the final collection window.
+    if(quietEndgame() && feedTargetId<=1 && roundNo<470 && units<=2) return false;
     return !officialQueen() && feedTargetFresh() && feedTargetId!=id && eligibleDonor(id,length);
 }
 bool circleMeeting(vector<Move>& moves,int meeting) {
@@ -1639,6 +1681,7 @@ bool readTurn() {
         }
     }
     if(!cin) return false;
+    for(const Tile &t:tiles) if(t.id>=0 && t.team!=team) lastEnemySeen=roundNo;
     syncBody();
     rememberTerrain();
     receiveRadio();
@@ -1665,9 +1708,10 @@ int main() {
         auto moves=legalMoves();
         bool guided=guideOutOfLoop(moves);
         bool courier=guideCourier(moves);
-        bool foodRoute=!courier && guideToPearl(moves);
-        bool resourceRoute=!courier && !foodRoute && guideToResource(moves);
-        bool pocket=!courier && profitablePocketMove(moves);
+        bool escapeLocked=guided && turnsAlive<escapeLockUntil;
+        bool foodRoute=!courier && !escapeLocked && guideToPearl(moves);
+        bool resourceRoute=!courier && !escapeLocked && !foodRoute && guideToResource(moves);
+        bool pocket=!courier && !escapeLocked && profitablePocketMove(moves);
         int splitSize=0;
         Move chosen; string reason=courier?"COURIER_ESCAPE":pocket?"PROFITABLE_POCKET":foodRoute?"PEARL_ROUTE":resourceRoute?"RESOURCE_ROUTE":guided?"NAVIGATE":"EXPLORE";
         if(!courier && queenAssembly(moves)) reason="QUEEN_ASSEMBLY";
@@ -1752,7 +1796,7 @@ int main() {
             if(chosen.to>=0 || chosen.portal) recordMove(chosen);
         }
         emitRadio();
-        cout<<"INDICATOR v9 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" target="<<feedTargetId<<" queen="<<officialQueenId<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<" resource="<<resourceGoal<<" official="<<officialQueenId<<" queen_dead="<<officialQueenDeath<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
+        cout<<"INDICATOR v10 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" target="<<feedTargetId<<" queen="<<officialQueenId<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<" resource="<<resourceGoal<<" official="<<officialQueenId<<" queen_dead="<<officialQueenDeath<<" quiet="<<quietEndgame()<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
         turnsAlive++;
     }
     return 0;

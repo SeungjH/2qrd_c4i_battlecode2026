@@ -4,6 +4,7 @@
 #include <cassert>
 
 void setup(int len=3,int r=100) {
+    pearlCooldown.fill(0);escapeLockUntil=-1;lastEnemySeen=-100;
     width=height=20; id=10; team='A'; length=len; roundNo=r; units=2; unitLimit=64; facing=bearing=1;
     localAt.fill(-1); lastSeen.fill(-1); lastVisit.fill(-10000); pearlSeen.fill(-1);
     for(auto &v:terrain) v.fill(-2);
@@ -40,12 +41,38 @@ unsigned long long from(int owner,int type,unsigned data,int stamp) {
 }
 int main(int argc,char**argv) {
     assert(argc==2); string test=argv[1];
-    if(test=="short_loop") {
+    if(test=="unsafe_pearl_path") {
+        setup(3,100);turnsAlive=40;
+        for(auto &t:tiles) if(t.id==id) t=Tile{t.p};
+        body={{10,10},{10,11},{9,11}};
+        for(int k=0;k<3;k++) {int j=local(body[k]);tiles[j].id=id;tiles[j].team=team;tiles[j].head=k==0;}
+        for(auto &r:he) for(auto &e:r) e="w";
+        for(auto &r:ve) for(auto &e:r) e="w";
+        auto open=[](Pos a,Pos b) {int j=local(a),r=j/7,c=j%7;
+            if(b.x>a.x) ve[r][c+1]=".";else if(b.x<a.x) ve[r][c]=".";
+            else if(b.y>a.y) he[r+1][c]=".";else he[r][c]=".";};
+        vector<Pos> ring{{10,10},{9,10},{8,10},{8,11},{9,11},{10,11},{10,10}};
+        for(int k=1;k<int(ring.size());k++) open(ring[k-1],ring[k]);
+        open({8,11},{7,11});tiles[local({7,11})].pearl=true;
+        vector<Pos> escape{{10,10},{11,10},{12,10},{12,9},{11,9},{10,9},{9,9},{8,9},{8,10}};
+        for(int k=1;k<int(escape.size());k++) open(escape[k-1],escape[k]);
+        rememberTerrain();auto m=legalMoves();
+        assert(any_of(m.begin(),m.end(),[](const Move&m){return m.dir==3 && safeMove(m);}));
+        assert(!guideToPearl(m));assert(pearlCooldown[code({7,11})]==124);
+        cout<<"safe first step cannot commit to a dead-end final meal; target cools down passed\n";
+    } else if(test=="quiet_feeding") {
+        setup(10,360);turnsAlive=80;rememberAllyReport(0,8,{13,12},roundNo);units=5;
+        assert(quietEndgame() && donationCandidate());
+        lastEnemySeen=350;assert(!quietEndgame() && !donationCandidate());
+        lastEnemySeen=-100;units=2;assert(!donationCandidate());
+        roundNo=470;rememberAllyReport(0,8,{13,12},roundNo);assert(donationCandidate());
+        cout<<"quiet R350 feeding expands donors, recent enemies restore caution passed\n";
+    } else if(test=="short_loop") {
         setup();turnsAlive=40;visits[code(tiles[24].p)]=1;
         for(int j=0;j<24;j++) recentHeads.push_back(code({j%20,j/20}));
         vector<Pos> cycle{{10,9},{11,9},{11,10},{10,10}};
         for(int j=0;j<7;j++) recentHeads.push_back(code(cycle[j%4]));
-        auto m=legalMoves();assert(guideOutOfLoop(m));assert(navigating && goal>=0);
+        auto m=legalMoves();assert(guideOutOfLoop(m));assert(navigating && goal>=0 && escapeLockUntil==turnsAlive+8);
         for(Pos p:cycle) assert(goal!=code(p));
         assert(safeMove(m.front()));
         cout<<"two laps of a four-cell loop choose a reachable destination outside the loop passed\n";
@@ -361,6 +388,12 @@ int main(int argc,char**argv) {
         moves=legalMoves();coordinateDonation(moves,chosen,reason);
         assert(receiveConfirmed && reason=="RECEIVE_PEARLS");
         cout<<"receiver follows observed corpse pearls passed\n";
+    } else if(test=="quiet_partial_gift") {
+        setup(6,360);turnsAlive=80;
+        ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8},{9,9},{8,9}},360);
+        assert(collectionPlan(id,2,10).safe);
+        lastEnemySeen=359;assert(!collectionPlan(id,2,10).safe);
+        cout<<"quiet midgame accepts a safe visible portion; recent enemies require full recovery passed\n";
     } else if(test=="partial_gift") {
         setup(6,410);
         ally(2,{{11,9},{12,9},{13,9},{13,8},{12,8},{11,8},{10,8},{9,8},{9,9},{8,9}},410);
