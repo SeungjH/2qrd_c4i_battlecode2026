@@ -23,11 +23,11 @@ inline bool Bot::handleTerminalAction(bool &recoveredQueen) {
     if(discardTrappedHead) {
         // No action kills this two-segment parent in place, without hitting
         // another dragon. The reversed child is controlled independently.
-        cout<<"INDICATOR v13 DISCARD_TRAPPED_HEAD_2\nPROTOCOL 3\nENDTURN\n"<<flush;
+        cout<<"INDICATOR "<<BotVersion<<" DISCARD_TRAPPED_HEAD_2\nPROTOCOL 3\nENDTURN\n"<<flush;
         return true;
     }
     if(newbornQueenTailGift()) {
-        cout<<"INDICATOR v13 QUEEN_TAIL_GIFT_2\nPROTOCOL 3\nENDTURN\n"<<flush;
+        cout<<"INDICATOR "<<BotVersion<<" QUEEN_TAIL_GIFT_2\nPROTOCOL 3\nENDTURN\n"<<flush;
         return true;
     }
     return false;
@@ -176,7 +176,7 @@ inline void Bot::executeAction(ActionPlan &plan) {
 inline void Bot::finishTurn(const ActionPlan &plan) {
     const auto &reason=plan.reason;
     emitRadio();
-    cout<<"INDICATOR v13 "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" target="<<feedTargetId<<" queen="<<officialQueenId<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<" resource="<<resourceGoal<<" official="<<officialQueenId<<" queen_dead="<<officialQueenDeath<<" home="<<assemblyCenter<<" spawn="<<spawnHome<<" quiet="<<quietEndgame()<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
+    cout<<"INDICATOR "<<BotVersion<<" "<<reason<<" bearing="<<DIRS[bearing]<<" goal="<<goal<<" peer="<<donationTarget<<" target="<<feedTargetId<<" queen="<<officialQueenId<<" enemy="<<huntEnemy<<" entry="<<corridorEntry<<" resource="<<resourceGoal<<" official="<<officialQueenId<<" queen_dead="<<officialQueenDeath<<" home="<<assemblyCenter<<" spawn="<<spawnHome<<" quiet="<<quietEndgame()<<"\nPROTOCOL 3\nENDTURN\n"<<flush;
 }
 
 inline void Bot::playTurn() {

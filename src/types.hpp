@@ -14,6 +14,8 @@ namespace battlecode {
 // Names stay inside this project namespace, not in the global namespace.
 using namespace std;
 
+inline constexpr char BotVersion[]="v14";
+
 namespace policy {
 inline constexpr int ExpansionEnd = 250;
 inline constexpr int SupportStart = 280;

@@ -1,4 +1,4 @@
-# Explorer v13 — C++ 휴리스틱 봇
+# Explorer v14 — C++ 휴리스틱 봇
 
 각 드래곤이 같은 프로그램을 독립 실행하며 시야·몸통 좌표 기억·소나로 협력합니다. RL은 사용하지 않습니다.
 
@@ -8,9 +8,11 @@
 
 리팩터링 전후100경기217,840턴의 MOVE/SPLIT/SONAR/INDICATOR 포함 전체 출력이 바이트 단위로 동일했습니다. 공식 심판3개 전체 경기에서도5,186턴의 출력과 점수가 같았고 계산량·메모리 제한을 만족했습니다. 전략53개·프로세스 행동 회귀 통과. 기존 `engine_trap.py` 경고 송신 실패는 그대로이며, 이번 작업은 가중치와 판단 우선순위를 바꾸지 않습니다. [검증 보고서·재현](analysis/asides-v13-review/refactor/report.ko.md).
 
+현재 배포 버전은 **v14**입니다. 위 출력 동일성 검증은 버전 라벨 변경 전 코드 기준이며, v14에서는 indicator 라벨만 변경하고 전략은 유지했습니다.
+
 ## 제출
 
-`./package_submission.sh` → **`dist/2qrd_v13.zip`**. 커밋된 `bot.toml`과 `src/`를 포함하고4MB 미만입니다. 공식 제출 입력은 `src/entry.cpp`와 `src/*.hpp`이며 실제15파일/단일.cpp 빌드를 검증했습니다. 루트 `main.cpp`는 로컬 명령 호환 래퍼로 제출하지 않습니다. 두 진입점을 동시에 컴파일하지 마세요. 미커밋·미추적 소스가 있으면 패키징을 거부합니다. ZIP은 GitHub에 올리지 않습니다.
+`./package_submission.sh` → **`dist/2qrd_v14.zip`**. 커밋된 `bot.toml`과 `src/`를 포함하고4MB 미만입니다. 공식 제출 입력은 `src/entry.cpp`와 `src/*.hpp`이며 실제15파일/단일.cpp 빌드를 검증했습니다. 루트 `main.cpp`는 로컬 명령 호환 래퍼로 제출하지 않습니다. 두 진입점을 동시에 컴파일하지 마세요. 미커밋·미추적 소스가 있으면 패키징을 거부합니다. ZIP은 GitHub에 올리지 않습니다.
 
 ## v12에서 변경한 내용
 
@@ -54,9 +56,9 @@
 
 ```sh
 ./tests/run.sh
-clang++ -std=c++20 -O2 -Wall -Wextra main.cpp -o /tmp/explorer-v13
+clang++ -std=c++20 -O2 -Wall -Wextra main.cpp -o /tmp/explorer-v14
 # unswbc 1.2.3이 설치된 Python 사용
-python3 tests/engine_reverse_discard.py /tmp/explorer-v13
+python3 tests/engine_reverse_discard.py /tmp/explorer-v14
 ```
 
 시야 밖 적의 현재 점유나 새 자식에게 전달되지 않은 초기 몸통은 알 수 없으며, 소나도 모든 개체에게 도달하지 않습니다. 따라서 탈출 생존을 보장하지는 않습니다.
