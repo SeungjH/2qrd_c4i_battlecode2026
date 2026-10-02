@@ -1,7 +1,10 @@
-#define main battlecode_main
-#include "../main.cpp"
-#undef main
+#include "../src/controller.hpp"
 #include <cassert>
+
+namespace battlecode {
+
+// A narrow friend fixture, not a production public-state compatibility layer.
+struct BotTestAccess : Bot {
 
 void setup(int len=3,int r=100) {
     pearlCooldown.fill(0);escapeLockUntil=-1;lastEnemySeen=-100;
@@ -40,9 +43,19 @@ void ally(int owner,vector<Pos> b,int stamp=400) {
 unsigned long long from(int owner,int type,unsigned data,int stamp) {
     int saved=id;id=owner;auto raw=encodePacket({type,owner,stamp,data});id=saved;return raw;
 }
-int main(int argc,char**argv) {
+int execute(int argc,char**argv) {
     assert(argc==2); string test=argv[1];
-    if(test=="body_memory") {
+    if(test=="state_isolation") {
+        BotTestAccess first,second;
+        first.setup(4,420);second.setup(3,100);
+        first.visits[640]=9;first.huntEnemy=77;first.body.clear();
+        first.warnings[40]={420,440,-100,false,1};
+        first.sendPacket(DANGER,123);
+        assert(second.length==3 && second.roundNo==100 && second.body.size()==3);
+        assert(second.visits[640]==0 && second.huntEnemy==-1);
+        assert(second.warnings.empty() && !second.hasOutgoing);
+        cout<<"per-dragon observation, navigation, combat and radio memory are isolated passed\n";
+    } else if(test=="body_memory") {
         setup(8);
         auto old=body;syncBody();assert(body==old && local(body.back())<0);
         Move m;m.dir=1;m.to=local({11,10});recordMove(m);
@@ -75,7 +88,7 @@ int main(int argc,char**argv) {
         for(int k=0;k<3;k++) {int j=local(body[k]);tiles[j].id=id;tiles[j].team=team;tiles[j].head=k==0;}
         for(auto &r:he) for(auto &e:r) e="w";
         for(auto &r:ve) for(auto &e:r) e="w";
-        auto open=[](Pos a,Pos b) {int j=local(a),r=j/7,c=j%7;
+        auto open=[this](Pos a,Pos b) {int j=local(a),r=j/7,c=j%7;
             if(b.x>a.x) ve[r][c+1]=".";else if(b.x<a.x) ve[r][c]=".";
             else if(b.y>a.y) he[r+1][c]=".";else he[r][c]=".";};
         vector<Pos> ring{{10,10},{9,10},{8,10},{8,11},{9,11},{10,11},{10,10}};
@@ -84,7 +97,7 @@ int main(int argc,char**argv) {
         vector<Pos> escape{{10,10},{11,10},{12,10},{12,9},{11,9},{10,9},{9,9},{8,9},{8,10}};
         for(int k=1;k<int(escape.size());k++) open(escape[k-1],escape[k]);
         rememberTerrain();auto m=legalMoves();
-        assert(any_of(m.begin(),m.end(),[](const Move&m){return m.dir==3 && safeMove(m);}));
+        assert(any_of(m.begin(),m.end(),[this](const Move&m){return m.dir==3 && safeMove(m);}));
         assert(!guideToPearl(m));assert(pearlCooldown[code({7,11})]==124);
         cout<<"safe first step cannot commit to a dead-end final meal; target cools down passed\n";
     } else if(test=="quiet_feeding") {
@@ -252,11 +265,68 @@ int main(int argc,char**argv) {
         }
         ve[3][4]="w"; // The only non-body direction from the old head is a wall.
         auto moves=legalMoves();
-        assert(!physicallyTrapped() && !reverseRescue(moves)); // Tail vacates: no discard.
-        tiles[local(body.back())].pearl=1; // Now the tail cannot vacate on entry.
+        // The tail is occupied during collision checking, with or without food.
+        assert(moves.empty());
         assert(physicallyTrapped() && !cutCanReleaseParent() && reverseRescue(moves));
+        tiles[local(body.back())].pearl=1;
+        assert(physicallyTrapped() && reverseRescue(moves));
+        tiles[local(body.back())].pearl=0;
+        ve[3][4]="."; // An actually empty destination must still prevent discard.
+        assert(!physicallyTrapped() && !reverseRescue(legalMoves()));
+        ve[3][4]="w";
+        units=unitLimit;assert(!reverseRescue({}));units=2;
         assert(length-2==8 && local(body.back())>=0);
         cout<<"trapped long parent leaves old head 2 and reverses 8 safe tail segments passed\n";
+    } else if(test=="tail_collision_trap") {
+        // M887299 R406 ID562, translated from (33,19) to (10,10).
+        setup(3,406);turnsAlive=148;facing=bearing=3;
+        for(auto &t:tiles) if(t.id==id) {t.id=-1;t.head=false;}
+        body={{10,10},{11,10},{11,11},{10,11},{10,12},{9,12},{9,11},{9,10}};
+        length=int(body.size());
+        for(int n=0;n<length;n++) {
+            int j=local(body[n]);assert(j>=0);
+            tiles[j].id=id;tiles[j].team=team;tiles[j].head=n==0;
+        }
+        he[3][3]="w";he[4][3]="w";rememberTerrain();
+        assert(legalMoves().empty());
+        assert(physicallyTrapped() && reverseRescue({}));
+        assert(!cutCanReleaseParent());
+        units=unitLimit;assert(!reverseRescue({}));units=2;
+        he[3][3]=".";rememberTerrain();
+        assert(!physicallyTrapped() && !reverseRescue(legalMoves()));
+        cout<<"replay R406 tail collision is trapped; a truly empty exit prevents rescue passed\n";
+    } else if(test=="queen_tail_release") {
+        // Schooltime's starting queen: head and tail are adjacent in a 2x2 coil.
+        setup(3,0);id=0;turnsAlive=0;
+        for(auto &t:tiles) if(t.id==10) {t.id=-1;t.head=false;}
+        body={{10,10},{10,9},{11,9},{11,10}};length=4;
+        for(int n=0;n<length;n++) {int j=local(body[n]);tiles[j].id=id;tiles[j].team=team;tiles[j].head=n==0;}
+        he[4][3]="w";ve[3][3]="w";rememberTerrain();
+        assert(queenTailReleaseSplit());
+        units=unitLimit;assert(!queenTailReleaseSplit());units=2;
+        ve[3][3]=".";assert(!queenTailReleaseSplit());ve[3][3]="w";
+        id=2;assert(!queenTailReleaseSplit());
+        // A visible queen with no ordinary exit may reclaim the newborn head.
+        setup(2,0);turnsAlive=0;
+        for(auto &t:tiles) if(t.id==id) {t.id=-1;t.head=false;}
+        body={{10,10},{10,9}};
+        for(int n=0;n<2;n++) {int j=local(body[n]);tiles[j].id=id;tiles[j].team=team;tiles[j].head=n==0;}
+        ally(0,{{9,10},{9,9}},0);
+        he[4][2]="w";ve[3][2]="w";rememberTerrain();
+        assert(newbornQueenTailGift());
+        turnsAlive=1;assert(!newbornQueenTailGift());turnsAlive=0;
+        ve[3][2]=".";assert(!newbornQueenTailGift());
+        ve[3][2]="5";assert(!newbornQueenTailGift());ve[3][2]="w";
+        tiles[local({9,10})].team='B';assert(!newbornQueenTailGift());
+        cout<<"queen keeps identity; newborn gift requires a visible trapped ally and no free/unknown exit passed\n";
+    } else if(test=="queen_recover") {
+        setup(2,220);id=0;
+        for(auto &t:tiles) if(t.id==10) t.id=id;
+        assert(retainedQueenCanEscape());
+        he[3][3]="w";he[4][3]="w";ve[3][4]="w";rememberTerrain();
+        assert(!retainedQueenCanEscape());
+        id=2;assert(!retainedQueenCanEscape());
+        cout<<"retained queen recovers only when a fresh safe move exists passed\n";
     } else if(test=="roles_and_income") {
         setup(4,100);turnsAlive=30;foodRounds.push_back(99);
         auto moves=legalMoves();assert(routineSplit(moves));
@@ -566,4 +636,14 @@ int main(int argc,char**argv) {
         assert(!collectionPlan(id,0,8).safe);
         cout<<"one-exit corridor admits a recoverable gift but rejects enemy contact passed\n";
     } else return 2;
+    return 0;
+}
+
+};
+
+} // namespace battlecode
+
+int main(int argc, char **argv) {
+    static battlecode::BotTestAccess bot;
+    return bot.execute(argc, argv);
 }

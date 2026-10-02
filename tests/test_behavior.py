@@ -153,3 +153,14 @@ for certified in (False,True):
     assert sacrificed==certified,(certified,action,out)
     if certified:assert action=='MOVE W',(action,out)
 print('fallback gift: full bot refuses unknown queen state and sacrifices after a valid death certificate')
+
+# Devil replay R220: the retained queen must re-check a newly opened safe exit.
+c=Client(owner=0)
+b=[(10,10),(10,11),(11,11),(12,11),(12,10),(12,9)]
+walls={('H',10,10),('V',10,10),('V',11,10)}
+a,out=c.ask(frame(400,b,owner=0,walls=walls,echo=False))
+assert a=='SPLIT 4' and any('REVERSE_RESCUE' in line for line in out),(a,out)
+walls.remove(('H',10,10))
+a,out=c.ask(frame(401,b[:2],owner=0,walls=walls,others=[(2,[(13,9),(12,9),(12,10),(12,11)])]))
+assert a=='MOVE N' and any('QUEEN_RECOVERED' in line for line in out),(a,out)
+c.close();print('retained queen: opened safe exit cancels the old discard latch')

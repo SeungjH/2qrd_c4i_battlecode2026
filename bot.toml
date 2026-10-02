@@ -1,3 +1,3 @@
 [project]
 language = "c++"
-include = [ "main.cpp" ]
+include = [ "src/entry.cpp", "src/*.hpp" ]

@@ -5,8 +5,9 @@ repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$repo_dir"
 
 # Package only the committed bot; refuse to silently omit local source edits.
-if ! git diff --quiet HEAD -- main.cpp bot.toml; then
-    printf '%s\n' 'Commit changes to main.cpp and bot.toml before packaging.' >&2
+if ! git diff --quiet HEAD -- main.cpp bot.toml src ||
+   [ -n "$(git ls-files --others --exclude-standard -- src)" ]; then
+    printf '%s\n' 'Commit changes to main.cpp, bot.toml and src/ before packaging.' >&2
     exit 1
 fi
 
@@ -17,7 +18,7 @@ if [ -z "$version" ]; then
 fi
 mkdir -p dist
 archive="dist/2qrd_${version}.zip"
-git archive --format=zip --output="$archive" HEAD -- main.cpp bot.toml
+git archive --format=zip --output="$archive" HEAD -- bot.toml src
 archive_bytes=$(wc -c < "$archive" | tr -d ' ')
 if [ "$archive_bytes" -ge 4000000 ]; then
     printf '%s\n' 'Submission ZIP must be smaller than 4 MB.' >&2

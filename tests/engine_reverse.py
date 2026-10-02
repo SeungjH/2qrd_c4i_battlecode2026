@@ -16,7 +16,7 @@ lines += [f'EDGE_COUNT {len(edges)}',*edges,'DRAGON_COUNT 2',
           'DRAGON 0 10 '+' '.join(f'{x} {y}' for x,y in body),
           'DRAGON 1 2 2 2 2 3','END']
 engine=EngineModule();pool=Pool([str(Path(sys.argv[1]).resolve())],size=1)
-live={};teams={};actions=[];children=[];indicators=[]
+live={};teams={};actions=[];children=[];indicators=[];deaths=[];observed={}
 class Enough(Exception):pass
 def spawn(i,init):
  teams[i]=next(s.split()[1] for s in init.decode().splitlines() if s.startswith('TEAM '))
@@ -28,11 +28,15 @@ def reply(i,block):
  altered=re.sub(rb'^ROUND \d+',f'ROUND {rnd+410}'.encode(),block)
  out=live[i].ask(altered)
  assert not live[i].error,live[i].error
- act=next(x for x in out.decode().splitlines() if x.startswith(('MOVE ','SPLIT ')))
+ # A queen's newborn tail gift deliberately outputs no MOVE/SPLIT.
+ # Only that two-segment child may die; the fixed queen must remain alive.
+ act=next((x for x in out.decode().splitlines() if x.startswith(('MOVE ','SPLIT '))), 'NO_ACTION')
+ observed[i]=int(re.search(rb'LENGTH (\d+)',block).group(1))
  actions.append((rnd,i,act))
  indicators.extend((rnd,i,line) for line in out.decode().splitlines() if line.startswith("INDICATOR "))
  return out
 def death(i,r,reason):
+ deaths.append((i,r,reason))
  bot=live.pop(i,None)
  if bot:bot.stop()
 try:
@@ -42,7 +46,11 @@ finally:
  for bot in live.values():bot.stop()
  pool.close()
 print('actions',actions[:10],'children',children)
-assert (0,0,'SPLIT 8') in actions
-assert any(i>1 and a.startswith('MOVE ') for r,i,a in actions if r==0)
-assert any(r==0 and i>1 and 'official=0 ' in line and 'queen=0 ' in line for r,i,line in indicators), indicators
-print('PASS: official engine created the eight-segment reversed child and it moved in the split round')
+assert (0,0,'SPLIT 2') in actions,actions
+assert any(r==0 and i>1 and a=='NO_ACTION' for r,i,a in actions),actions
+assert any(r==1 and i==0 and a.startswith('MOVE ') for r,i,a in actions),actions
+assert any('QUEEN_TAIL_RELEASE' in line for _,_,line in indicators),indicators
+assert any('QUEEN_TAIL_GIFT_2' in line for _,_,line in indicators),indicators
+assert len(deaths)==1 and deaths[0][0]>1 and deaths[0][1:]==(0,'A'),deaths
+assert observed[0]==8 and all(size==2 for i,size in observed.items() if i>1),observed
+print('PASS: tail-blocked length10 queen retained 8; newborn2 died in place; original queen moved next round')
