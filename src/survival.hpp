@@ -72,7 +72,9 @@ inline bool Bot::queenTailReleaseSplit() {
 // Require a visible allied scoring queen, no free/unknown physical exit, and
 // our head as its ordinary-edge exit. No untrusted sonar claim is sufficient.
 inline bool Bot::newbornQueenTailGift() {
-    if(officialQueen() || length!=2 || turnsAlive!=0 || int(body.size())!=2) return false;
+    if(officialQueen() || length<2 || turnsAlive!=0) return false;
+    if(queenGiftStamp>=roundNo-1) return true;
+    if(length!=2 || int(body.size())!=2) return false;
     for(int j=0;j<49;j++) if(tiles[j].head && tiles[j].team==team &&
                             tiles[j].id>=0 && tiles[j].id<=1 && tiles[j].id<id) {
         bool headExit=false,otherExit=false;
@@ -95,7 +97,7 @@ inline bool Bot::retainedQueenCanEscape() {
 }
 
 inline bool Bot::reverseRescue(const vector<Move>& moves) {
-    if(!physicallyTrapped()) return false;
+    if(officialQueen() || !physicallyTrapped()) return false;
     if(length<4 || units>=unitLimit || int(body.size())!=length ||
        body.back().x<0 || cutCanReleaseParent()) return false;
     // A merely narrow but still open route is not a reason to shed two segments.
@@ -243,6 +245,82 @@ inline int Bot::branchChildDirection(const vector<Move>& moves) {
         if(score>value) {value=score;best=d;}
     }
     return choices>=2?best:-1;
+}
+
+// Keep the fixed head and remove the smallest suffix that gives it a verified escape.
+inline int Bot::queenReleaseSplitSize() {
+    if(!officialQueen() || length<4 || units>=unitLimit || int(body.size())!=length) return 0;
+    if(any_of(body.begin(),body.end(),[](Pos p){return p.x<0;})) return 0;
+    if(!physicallyTrapped()) return 0;
+    array<bool,4096> others{};
+    for(const Tile &t:tiles) if(t.id>=0 && t.id!=id) others[code(t.p)]=true;
+    array<bool,49> savedFood{};
+    for(int j=0;j<49;j++) savedFood[j]=tiles[j].pearl;
+    for(int cut=2;cut<=length-2;cut++) {
+        int retained=length-cut;
+        // The reversed child drops every second cell, starting at the old tail.
+        for(int k=length-1;k>=retained;k-=2) {int j=local(body[k]);if(j>=0) tiles[j].pearl=true;}
+        for(int d=0;d<4;d++) {
+            if(edge(24,d)!=".") continue;
+            int to=nextTile(24,d,false);
+            if(to<0 || tiles[to].id!=id || headRisk(to)>=18) continue;
+            auto at=find(body.begin()+retained,body.end(),tiles[to].p);
+            if(at==body.end()) continue;
+            vector<int> trail;for(int k=0;k<retained;k++) trail.push_back(code(body[k]));
+            trail.insert(trail.begin(),code(tiles[to].p));
+            array<bool,49> eaten{};
+            if(tiles[to].pearl) eaten[to]=true;else trail.pop_back();
+            int budget=768;
+            bool escape=longContinuation(trail,others,eaten,min(12,max(6,retained+2)),budget);
+            if(escape) {
+                for(int j=0;j<49;j++) tiles[j].pearl=savedFood[j];
+                return cut;
+            }
+        }
+        for(int j=0;j<49;j++) tiles[j].pearl=savedFood[j];
+    }
+    return 0;
+}
+
+// Only a visible fixed queen with no usable exit can request emergency clearance.
+inline bool Bot::relieveQueenLane(ActionPlan &plan) {
+    if(officialQueen()) return false;
+    int q=-1;
+    for(int j=0;j<49;j++) if(tiles[j].head && tiles[j].team==team && tiles[j].id>=0 && tiles[j].id<=1) q=j;
+    if(q<0) return false;
+    array<bool,49> blocked{};for(int j=0;j<49;j++) blocked[j]=tiles[j].id>=0;
+    bool ourExit=false;
+    for(int d=0;d<4;d++) {
+        if(edge(q,d)!=".") continue;
+        int to=nextTile(q,d,false);if(to<0) return false;
+        if(tiles[to].id<0) {
+            Region r=region(to,blocked,false);
+            if(r.frontier || r.area>=4) return false;
+        }
+        if(tiles[to].id==id) ourExit=true;
+    }
+    if(!ourExit || length>12) return false;
+    // Advancing an uneaten tail costs nothing and is preferred to sacrifice.
+    int tail=body.empty()?-1:local(body.back());
+    bool tailExit=false;
+    for(int d=0;d<4;d++) if(edge(q,d)=="." && nextTile(q,d,false)==tail) tailExit=true;
+    if(tailExit) for(const Move &m:plan.moves) if(m.to>=0 && !tiles[m.to].pearl && safeMove(m)) {
+        plan.chosen=m;plan.reason="QUEEN_CLEAR_TAIL";return true;
+    }
+    for(int j=0;j<49;j++) if(tiles[j].id==id) blocked[j]=false;
+    for(int d=0;d<4;d++) {
+        int to=nextTile(q,d,false);
+        if(edge(q,d)!="." || to<0 || tiles[to].id!=id) continue;
+        bool contested=false;
+        for(const Tile &t:tiles) if(t.head && t.id>=0 && t.team!=team && distance(t.p,tiles[to].p)<=2) contested=true;
+        if(contested) continue;
+        Region r=region(to,blocked,false);
+        if(r.frontier || r.area>=6) {
+            plan.chosen=Move{};plan.splitSize=0;plan.sacrifice=true;
+            plan.reason="QUEEN_CLEAR_LANE";return true;
+        }
+    }
+    return false;
 }
 
 } // namespace battlecode

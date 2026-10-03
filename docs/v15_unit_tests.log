@@ -1,0 +1,86 @@
+per-dragon observation, navigation, combat and radio memory are isolated passed
+queen middle-body exit releases minimum suffix and retains fixed head passed
+queen suffix sacrifice requires newborn, matching position and fresh request passed
+visual death proof is conservative; old certificates persist for new descendants passed
+short queen lane is cleared before endgame only when no usable exit exists passed
+confirmed out-of-view corpse pearls survive temporary detour and expire boundedly passed
+body memory, hidden tail and 4/6 reversal passed
+unknown queen blocks fallback gifts; valid death enables them; stale death cannot override life passed
+queen region permits early scout food and reserves it during late feeding passed
+late donor takes two free verified steps; queen, small and crowded cases reject sprint passed
+small fallback king can receive gifts; fixed queen retains absolute priority passed
+one-exit corridor admits a recoverable gift but rejects enemy contact passed
+safe first step cannot commit to a dead-end final meal; target cools down passed
+R350 queen feeding admits larger donors; recent enemies still require full local recovery passed
+quiet midgame accepts a safe visible portion; recent enemies require full recovery passed
+fixed queen outranks larger collectors, never scouts portals or donates, and survives shrinkage passed
+two laps of a four-cell loop choose a reachable destination outside the loop passed
+scout seeks an observation frontier before revisiting any head position passed
+all route promotions respect the queen's next head tile passed
+receiver finishes an active gift, while larger challengers and shrinkage still replace it passed
+reversed child preserves fixed queen identity without a phantom warning passed
+nearest/admitted donor approaches; others clear the queen lane passed
+scouts decline a tiny target with open escape routes passed
+directional entrance warning and temporary expiry passed
+newborn escape assignment, warning relay, nonvisible status rejection passed
+queen donation needs correct ACK, round >=350 and safe collection passed
+contested pearls block deliberate sacrifice passed
+receiver reserves one donor, never simultaneously donates passed
+nearby short donor consolidates after repeated unanswered offers passed
+two visible allies coordinate without a sonar handshake passed
+hunting stops after thirty rounds passed
+trapped parent sends tail-child destination and permanent wall warning passed
+trapped long parent leaves old head 2 and reverses 8 safe tail segments passed
+replay R406 tail collision is trapped; a truly empty exit prevents rescue passed
+queen keeps identity; newborn gift requires a visible trapped ally and no free/unknown exit passed
+retained queen recovers only when a fresh safe move exists passed
+early 2+2 scouts, income-gated late collectors and protected long dragon passed
+productive local loop is retained passed
+only surplus short scouts may trade with a visibly longer enemy passed
+small donors can approach length-eight receiver from round 350 passed
+unknown portal scouting, remote paired route, cooldown and no hard quota passed
+shared portal exits and permanent trap warnings prevent re-entry passed
+safe direct gift needs a fresh elected queen, not an ACK passed
+SONAR N 15492383461720728202
+SONAR E 15492383461720728202
+SONAR S 15523913263048901389
+SONAR W 15492383461720728202
+queen identity, length and position survive sonar relay passed
+warning queue evicts oldest temporary record before permanent danger passed
+large-map scouts take sparse portals and split without recent food passed
+three-pearl pocket can be entered and a length-three tail can escape passed
+unfulfilled offer never becomes phantom food and expires passed
+receiver follows corpse pearls despite retained donor STATUS passed
+safe partial gift does not need the whole donor inside vision passed
+SONAR N 15492383453667664522
+SONAR E 15492383453667664522
+SONAR S 15523913255129993997
+SONAR W 15492383453667664522
+small queen reports relay; newer shrinkage defeats stale length passed
+sonar length starts donor travel beyond the old ten-tile limit passed
+SONAR N 15519405016736723596
+SONAR E 15492383418905272970
+SONAR S 15492383418905272970
+SONAR W 15492383418905272970
+SONAR N 15492383419173708426
+SONAR E 15492383419173708426
+SONAR S 15519405016736723596
+SONAR W 15492383419173708426
+fountain detection, relay provenance and expiry passed
+productive hunt survives twelve turns and honors a teammate exit claim passed
+long queen rejects a move that closes after later tail steps passed
+late short guards may trade against a large enemy threatening their queen passed
+tail split anticipates a later-ID enemy beside a remote tail passed
+new two-segment child trades only with a still-adjacent enemy head passed
+empty exploration: 188 unique cells / 200 moves, 39 turns
+routine length-7 split: child 2, parent retains 5
+emergency split: parent retained 5 and escaped through released tail
+blocked release: only 2-segment child sacrifices itself
+no-exit fallback: avoids ally head
+ally separation: moves sideways away from ally ahead
+wall-detour pearl route: moves north toward reachable visible food
+ALL BEHAVIOR REGRESSIONS PASSED
+donor sprint: two starting-length free steps, two meals and correct final SONAR position/length
+queen home: 200 safe turns within four cells of the spawn, no routine splitting or sprint
+fallback gift: full bot refuses unknown queen state and sacrifices after a valid death certificate
+queen wall/neck trap never transfers its fixed scoring identity to a child

@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/Users/brianhan/Documents/Codex/2026-09-30/new-chat/outputs/2qrd_c4i_battlecode2026/tests/engine_queen_tail_gift.py", line 37, in <module>
+    assert 0 in live,'The scoring queen must survive'
+           ^^^^^^^^^
+AssertionError: The scoring queen must survive

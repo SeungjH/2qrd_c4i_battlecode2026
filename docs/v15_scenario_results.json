@@ -1,0 +1,62 @@
+{
+  "queen_body_release": {
+    "tail_cut": 2,
+    "middle_cut": 4,
+    "fixed_id": 0,
+    "survived_rounds": 10,
+    "middle_final_length": 9
+  },
+  "feeding": [
+    {
+      "seed": 101,
+      "gifts": 6,
+      "queen_final_length": 17,
+      "verified_meals": 9,
+      "other_ally_meals": 0
+    },
+    {
+      "seed": 202,
+      "gifts": 6,
+      "queen_final_length": 17,
+      "verified_meals": 9,
+      "other_ally_meals": 0
+    },
+    {
+      "seed": 303,
+      "gifts": 5,
+      "queen_final_length": 14,
+      "verified_meals": 6,
+      "other_ally_meals": 0
+    }
+  ],
+  "certified_fallback": [
+    {
+      "seed": 101,
+      "gifts": 3,
+      "recipient_final_length": 16,
+      "verified_meals": 2,
+      "other_ally_meals": 0
+    },
+    {
+      "seed": 202,
+      "gifts": 2,
+      "recipient_final_length": 12,
+      "verified_meals": 2,
+      "other_ally_meals": 0
+    },
+    {
+      "seed": 303,
+      "gifts": 2,
+      "recipient_final_length": 17,
+      "verified_meals": 2,
+      "other_ally_meals": 0
+    }
+  ],
+  "unseen_queen_death": "three seeds: no authorized gifts, as required",
+  "sanitizer": {
+    "ubsan_fixtures": 9,
+    "errors": 0,
+    "asan": "runtime stalls even for empty main(); not counted as passed"
+  },
+  "known_baseline_failure": "engine_trap warning delivery assertion fails in both v14 and v15; outside requested scope"
+}

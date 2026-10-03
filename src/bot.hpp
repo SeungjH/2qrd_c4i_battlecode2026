@@ -113,6 +113,9 @@ private:
     bool cutCanReleaseParent();
     bool physicallyTrapped();
     bool queenTailReleaseSplit();
+    int queenReleaseSplitSize();
+    bool relieveQueenLane(ActionPlan &plan);
+    int giftExpiry();
     bool newbornQueenTailGift();
     bool retainedQueenCanEscape();
     bool reverseRescue(const vector<Move>& moves);

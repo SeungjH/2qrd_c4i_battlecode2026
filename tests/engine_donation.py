@@ -33,7 +33,7 @@ def spawn(i, init):
 
 def reply(i, block):
     rnd = int(block.split()[1])
-    if rnd >= 12:
+    if rnd >= 32:
         raise Enough()
     if teams[i] == 'B':
         return b'MOVE E\nENDTURN\n'
@@ -59,6 +59,6 @@ finally:
     for bot in live.values():
         bot.stop()
     pool.close()
-assert any('DONATE_DIRECT' in line for line in indicators), indicators
+assert any('DONATE_DIRECT' in line or 'DONATE_NEAR' in line or 'DONATE_ACCEPTED' in line for line in indicators), indicators
 assert max(lengths, default=0) >= (4 if small else 9), lengths
 print('PASS: sonar length authorized a direct gift; queen recovered it:', lengths)

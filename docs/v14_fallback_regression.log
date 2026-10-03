@@ -1,0 +1,6 @@
+{'seed': 101, 'gifts': 0, 'queen_max': 10, 'queen_last': 10, 'queen_deaths': [], 'verified_gift_meals': 0, 'violations': []}
+Traceback (most recent call last):
+  File "/Users/brianhan/Documents/Codex/2026-09-30/new-chat/outputs/2qrd_c4i_battlecode2026/tests/engine_feeding.py", line 105, in <module>
+    assert len(gifts)>=2 and len(recovered)>=2 and lengths[-1]>=10,row
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'seed': 101, 'gifts': 0, 'queen_max': 10, 'queen_last': 10, 'queen_deaths': [], 'verified_gift_meals': 0, 'violations': []}

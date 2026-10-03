@@ -1,3 +1,4 @@
+// v15: fixed queen rescue, certified death relay, reserved pearl recovery.
 #include "controller.hpp"
 
 int main() {

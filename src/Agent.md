@@ -47,3 +47,7 @@
 `tests/strategy_tests.cpp`의 좁은 friend fixture만 내부 상태에 접근한다. 생산용 public 상태나 전역 호환 alias는 만들지 않았다. 상태 격리 테스트를 포함한53개 전략 fixture와 프로세스 행동 회귀를 통과했다.
 
 `analysis/asides-v13-review/refactor/`에 리팩터링 전 소스,100경기217840턴의 전체 출력 동일성, 공식 심판3개 전체 경기5186턴의 출력 동일성·자원 검증, 원시 기록 및 재현 스크립트가 있다. 정확한 수치는 그 폴더의 `report.ko.md`를 참조한다.
+
+## v15 전략 변경 범위
+
+위 동작 보존 기록은 v14 리팩터링 당시의 계약이다. v15는 Queen 안전·길 비우기·최소 뒤쪽 분열·사망 증명 전파·증여 회수만 수정했다. 일반 개체의 탐색·전투·분열·스프린트 구현은 유지한다. `ActionPlan::sacrifice`는 아군 Queen의 검증된 출구를 여는 제자리 사망이며 MOVE를 출력하지 않는다. Queen의 분열은 고정 ID를 남기는 `QUEEN_BODY_RELEASE`로 처리하고 새 자식 요청에 reserved ESCAPE entry 4093을 사용한다. QUEEN payload bit25는 수혜자/진주 예약 위치, bit26은 집결 위치로 서로 구분한다.

@@ -21,7 +21,8 @@ inline Collection Bot::collectionPlan(int donor,int receiver,int receiverLength)
     Collection plan;
     int receiverHead=visibleHead(receiver);
     int donorLength=donor==id?length:(freshAlly(donor)?allies[donor].len:0);
-    if(receiverHead<0 || donorLength<2 || donorLength>12) return plan;
+    int cap=officialQueenDeath>=0 && roundNo>=400?24:12;
+    if(receiverHead<0 || donorLength<2 || donorLength>cap) return plan;
     auto parts=visibleBody(donor,donorLength);
     if(donor==id && int(body.size())==length) {
         parts.clear();
@@ -91,7 +92,8 @@ inline bool Bot::approachAlly(vector<Move>& moves,int owner) {
 }
 
 inline bool Bot::eligibleDonor(int donorId,int donorLength) {
-    if(donorId<=1 || donorLength<2 || donorLength>12) return false;
+    int cap=officialQueenDeath>=0 && roundNo>=400?24:12;
+    if(donorId<=1 || donorLength<2 || donorLength>cap) return false;
     if(feedTargetId<=1) {
         // Fixed queen outranks a longer collector. Grow it progressively,
         // preserving most scouts until the collection phase.
@@ -99,7 +101,7 @@ inline bool Bot::eligibleDonor(int donorId,int donorLength) {
             donorLength<=(roundNo<330?4:roundNo<350?6:12);
     }
     if(officialQueenDeath<0 || roundNo<350 || feedTargetLength<4) return false;
-    return feedTargetLength-donorLength>=2 ||
+    return feedTargetLength>donorLength ||
         (roundNo>=400 && donorLength==feedTargetLength && feedTargetId<donorId);
 }
 
@@ -160,11 +162,17 @@ inline bool Bot::queenAssembly(vector<Move>& moves) {
     rotate(moves.begin(),best,best+1);role=5;return true;
 }
 
+inline int Bot::giftExpiry() {
+    int expiry=min(499,roundNo+64);
+    if(receiveDonor>=0 && receiveStarted>=0) expiry=min(expiry,receiveStarted+64);
+    return expiry;
+}
+
 // Sonar length selects the role; local recovery checks select the sacrifice turn.
 inline bool Bot::coordinateDonation(vector<Move>& moves,Move &chosen,string &reason) {
     if(roundNo<(feedTargetId<=1 && feedTargetId>=0?policy::SupportStart:350) || roundNo>=497 || roundNo<=courierUntil ||
        roundNo<=reverseChildUntil) return false;
-    if(!feedTargetFresh()) { donationTarget=-1;receiveDonor=-1;return false; }
+    if(!feedTargetFresh()) { donationTarget=-1;receiveDonor=-1;receivePearls.clear();receiveConfirmed=false;return false; }
     if(receiveDonor>=0 && (roundNo>receiveUntil || feedTargetId!=id)) {
         receiveDonor=-1;receivePearls.clear();receiveConfirmed=false;
     }
@@ -186,11 +194,11 @@ inline bool Bot::coordinateDonation(vector<Move>& moves,Move &chosen,string &rea
         Collection plan=collectionPlan(p.sender,id,length);
         if(plan.safe && any_of(moves.begin(),moves.end(),[this](const Move &m){return safeMove(m);})) {
             if(receiveDonor<0) {
-                receiveDonor=p.sender;receiveStarted=roundNo;receiveUntil=roundNo+6;
+                receiveDonor=p.sender;receiveStarted=roundNo;receiveUntil=giftExpiry();
                 receiveConfirmed=false;
             }
             receiveMeeting=code(tiles[plan.closest].p);
-            for(const Tile &t:tiles) if(t.id==p.sender) reservedFood[code(t.p)]={id,roundNo+10};
+            for(const Tile &t:tiles) if(t.id==p.sender) reservedFood[code(t.p)]={id,giftExpiry()};
             if(!receiveConfirmed) {
                 receivePearls.clear();
                 auto parts=visibleBody(p.sender,allies[p.sender].len);
@@ -207,22 +215,30 @@ inline bool Bot::coordinateDonation(vector<Move>& moves,Move &chosen,string &rea
             receivePearls.clear();
             for(int k=0;k<int(parts.size());k+=2) receivePearls.push_back(code(tiles[parts[k]].p));
         }
-        int best=-1,bestDist=10000;vector<int> actual;
+        int best=-1,bestDist=10000;vector<int> actual,pending;
         for(int key:receivePearls) {
             int j=local(decodePos(key));
-            if(j<0 || !tiles[j].pearl) continue;
-            actual.push_back(key);
+            if(j<0) {pending.push_back(key);continue;}
+            if(!tiles[j].pearl) continue;
+            actual.push_back(key);pending.push_back(key);
             int d=routeDirection(moves,key),dist=distance(tiles[24].p,decodePos(key));
             if(d>=0 && dist<bestDist) {bestDist=dist;best=d;}
         }
         if(!actual.empty()) receiveConfirmed=true;
         if(receiveConfirmed) {
-            receivePearls=actual;
+            receivePearls=pending;
             if(best>=0 && promote(moves,best)) {
-                reason="RECEIVE_PEARLS";receiveUntil=roundNo+4;return false;
+                reason="RECEIVE_PEARLS";receiveUntil=giftExpiry();return false;
+            }
+            for(int key:receivePearls) {
+                int d=routeDirection(moves,key);
+                if(d>=0 && promote(moves,d)) {reason="RECEIVE_PEARLS";return false;}
+            }
+            if(!receivePearls.empty() && roundNo<=receiveUntil) {
+                reason="RECEIVE_REPOSITION";return false;
             }
             receiveDonor=-1;receivePearls.clear();receiveConfirmed=false;
-        } else if(roundNo-receiveStarted<=5 && circleMeeting(moves,receiveMeeting)) {
+        } else if(roundNo<=receiveUntil && circleMeeting(moves,receiveMeeting)) {
             reason="RECEIVE_WAIT";return false;
         } else {
             receiveDonor=-1;receivePearls.clear();receiveConfirmed=false;

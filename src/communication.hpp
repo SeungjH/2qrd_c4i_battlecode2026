@@ -86,7 +86,7 @@ inline bool Bot::reservedPearl(int key) {
         if(t.head && t.team==team && t.id<=1 && t.id>=0 && distance(decodePos(key),t.p)<=4) return true;
     if(roundNo>=policy::SupportStart && feedTargetFresh() && feedTargetId>=0 && feedTargetId<=1 && feedTargetId!=id) {
         auto home=rallyReports.find(feedTargetId);
-        if(home!=rallyReports.end() && roundNo-home->second.second<=20 &&
+        if(home!=rallyReports.end() && roundNo-home->second.second<=64 &&
            homeDistance(decodePos(key),home->second.first)<=max(4,feedTargetLength/4+2)) return true;
     }
     auto it=reservedFood.find(key);
@@ -141,15 +141,27 @@ inline bool Bot::avoided(int k,int d) {
 
 inline void Bot::receiveRadio() {
     received.clear();
+    // Identity and movement evidence comes from the real observation, not only sonar.
+    for(const Tile &t:tiles) if(t.head && t.team==team && t.id>=0 && t.id<=1 && t.id!=id) {
+        officialQueenId=t.id;officialQueenDeath=-1;
+        queenObservedHead=t.p;queenObservedRound=roundNo;
+    }
     for(auto raw:inbox) {
         if((raw>>56)!=0xD7 || int((raw>>55)&1)!=(team=='B')) continue;
         Packet p{int((raw>>52)&7),int((raw>>36)&65535),int((raw>>27)&511),unsigned(raw&0x7ffffff)};
         if(p.sender==id || p.stamp>roundNo || p.type>QUEEN) continue;
         int age=roundNo-p.stamp;
         if(p.type==QUEEN) {
+            // A receiver relays each reserved corpse cell; preserve original expiry.
+            if((p.payload&(1u<<25)) && !(p.payload&(1u<<26))) {
+                int key=p.payload&4095,owner=(p.payload>>12)&4095;
+                if(validKey(key) && age<=64 && owner==p.sender)
+                    reservedFood[key]={owner,min(499,p.stamp+64)};
+                continue;
+            }
             if(p.payload&(1u<<26)) {
                 int key=p.payload&4095;
-                if(validKey(key) && age<=20) {
+                if(validKey(key) && age<=64) {
                     auto old=rallyReports.find(p.sender);
                     if(old==rallyReports.end() || p.stamp>=old->second.second)
                         rallyReports[p.sender]={key,p.stamp};
@@ -158,9 +170,9 @@ inline void Bot::receiveRadio() {
                 continue;
             }
             int key=p.payload&4095,len=(p.payload>>12)&4095;
-            if(len==0 && p.sender<=1 && (officialQueenId<0 || p.sender==officialQueenId) && age<=policy::QueenReportAge &&
+            if(len==0 && p.sender<=1 && (officialQueenId<0 || p.sender==officialQueenId) && validKey(key) && !visibleAlly(p.sender) &&
                (!allyReports.count(p.sender) || p.stamp>=allyReports[p.sender].stamp)) {
-                officialQueenId=p.sender;officialQueenDeath=p.stamp;allyReports.erase(p.sender);selectFeedTarget();
+                officialQueenId=p.sender;officialQueenDeath=p.stamp;queenDeathHead=decodePos(key);allyReports.erase(p.sender);selectFeedTarget();
                 retiredQueen=p;retiredUntil=roundNo+12;
             }
             if(validKey(key) && len>=2) rememberAllyReport(p.sender,len,decodePos(key),p.stamp);
@@ -195,6 +207,10 @@ inline void Bot::receiveRadio() {
         }
         if(p.type==ESCAPE) {
             int child=p.payload&4095,entry=(p.payload>>12)&4095;
+            if(turnsAlive==0 && p.sender<=1 && p.sender<id && age<=1 &&
+               child==code(tiles[24].p) && entry==4093) {
+                queenGiftStamp=p.stamp;continue;
+            }
             // A proactive branch assignment uses reserved entry 4094, not a danger warning.
             if(turnsAlive==0 && p.sender<id && child==code(tiles[24].p) && entry==4094 && length==2) {
                 bearing=(p.payload>>24)&3;reverseChildUntil=roundNo;courierUntil=roundNo-1;
@@ -229,12 +245,12 @@ inline void Bot::receiveRadio() {
             if(p.type==OFFER) {
                 int receiver=p.payload&65535;
                 for(const Tile &t:tiles) if(t.id==p.sender && t.team==team)
-                    reservedFood[code(t.p)]={receiver,roundNo+10};
+                    reservedFood[code(t.p)]={receiver,giftExpiry()};
             }
             if(p.type==ACCEPT && p.sender==feedTargetId) {
                 int donor=p.payload&65535;servingDonor=donor;servingUntil=roundNo+6;
                 for(const Tile &t:tiles) if(t.id==donor && t.team==team)
-                    reservedFood[code(t.p)]={p.sender,roundNo+10};
+                    reservedFood[code(t.p)]={p.sender,giftExpiry()};
             }
         }
     }
@@ -246,11 +262,15 @@ inline void Bot::receiveRadio() {
     }
     // Our queens move one tile without portals. Only certify death when every
     // possible next head position fits inside this observation, not on a timeout.
-    if(officialQueenId>=0 && officialQueenDeath<0 && feedTargetId==officialQueenId &&
-       feedTargetId!=id && distance(tiles[24].p,feedTargetHead)+max(1,roundNo-feedTargetStamp+1)<=3 &&
-       !visibleAlly(officialQueenId)) {
+    bool observedMissing=queenObservedRound>=0 && roundNo>queenObservedRound &&
+        distance(tiles[24].p,queenObservedHead)+(roundNo-queenObservedRound)<=3;
+    bool reportedMissing=feedTargetId==officialQueenId && feedTargetId!=id && feedTargetFresh() &&
+        distance(tiles[24].p,feedTargetHead)+max(1,roundNo-feedTargetStamp+1)<=3;
+    if(officialQueenId>=0 && officialQueenDeath<0 && officialQueenId!=id &&
+       (observedMissing || reportedMissing) && !visibleAlly(officialQueenId)) {
+        queenDeathHead=observedMissing?queenObservedHead:feedTargetHead;
         officialQueenDeath=roundNo;allyReports.erase(officialQueenId);
-        retiredQueen={QUEEN,officialQueenId,roundNo,unsigned(code(feedTargetHead))};
+        retiredQueen={QUEEN,officialQueenId,roundNo,unsigned(code(queenDeathHead))};
         retiredUntil=roundNo+12;selectFeedTarget();
     }
     if(!feedTargetFresh()) feedTargetId=-1;
@@ -286,7 +306,10 @@ inline void Bot::emitRadio() {
         }
     }
     Packet queen;bool shareQueen=false;
-    if(roundNo<=retiredUntil && (retiredQueen.stamp==roundNo || roundNo%3==1)) {queen=retiredQueen;shareQueen=true;}
+    if(officialQueenId>=0 && officialQueenDeath>=0 && validKey(code(queenDeathHead)) && (roundNo+id)%3==0) {
+        queen={QUEEN,officialQueenId,officialQueenDeath,unsigned(code(queenDeathHead))};shareQueen=true;
+    }
+    else if(roundNo<=retiredUntil && (retiredQueen.stamp==roundNo || roundNo%3==1)) {queen=retiredQueen;shareQueen=true;}
     else if(feedTargetFresh() && (feedTargetId<=1 || feedTargetLength>=(roundNo>=350?3:8))) {
         queen={QUEEN,feedTargetId,feedTargetStamp,unsigned(code(feedTargetHead))|(unsigned(min(feedTargetLength,4095))<<12)};
         shareQueen=true;
@@ -311,11 +334,19 @@ inline void Bot::emitRadio() {
             portalRouteLastSent[key]=roundNo;shareInfo=true;
         }
     }
-    if(feedTargetId==id && assemblyCenter>=0) rallyReports[id]={assemblyCenter,roundNo};
+    int radioHome=officialQueen() && spawnHome>=0?spawnHome:assemblyCenter;
+    if(feedTargetId==id && radioHome>=0) rallyReports[id]={radioHome,roundNo};
     auto rally=rallyReports.find(feedTargetId);
-    if(feedTargetFresh() && rally!=rallyReports.end() && roundNo-rally->second.second<=20 && roundNo%2==0) {
+    if(feedTargetFresh() && rally!=rallyReports.end() && roundNo-rally->second.second<=64 && roundNo%2==0) {
         info={QUEEN,feedTargetId,rally->second.second,unsigned(rally->second.first)|
             (unsigned(min(feedTargetLength,4095))<<12)|(1u<<26)};shareInfo=true;
+    }
+    if(receiveDonor>=0 && roundNo<=receiveUntil && !receivePearls.empty() && roundNo%2==1) {
+        int key=receivePearls[(roundNo+id)%receivePearls.size()];
+        if(id<=4095 && validKey(key)) {
+            info={QUEEN,id,receiveStarted,unsigned(key)|(unsigned(id)<<12)|(1u<<25)};
+            shareInfo=true;
+        }
     }
     int aligned=-1;
     if(hasOutgoing && (outgoing.type==OFFER || outgoing.type==ACCEPT)) {

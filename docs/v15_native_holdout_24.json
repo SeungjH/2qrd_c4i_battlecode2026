@@ -1,0 +1,1139 @@
+{
+  "candidate": "/Users/brianhan/Documents/Codex/2026-09-30/new-chat/work/v15_candidate_final",
+  "baseline": "/Users/brianhan/Documents/Codex/2026-09-30/new-chat/work/github_v14_review/bot",
+  "workers": 4,
+  "games": 24,
+  "wins": 10,
+  "wall_seconds": 52.49,
+  "sum_match_seconds": 206.297,
+  "results": [
+    {
+      "map": "autarky",
+      "seed": 707,
+      "candidate_side": "A",
+      "candidate_won": true,
+      "candidate_queen_death": 3,
+      "baseline_queen_death": 3,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 14547,
+        "B": 11711
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "A",
+        "end_reason": 1,
+        "a_dragons": 27,
+        "b_dragons": 19,
+        "a_length": 160,
+        "b_length": 115,
+        "events": 216656,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 14,
+        "b_longest": 12
+      },
+      "elapsed_seconds": 9.544
+    },
+    {
+      "map": "autarky",
+      "seed": 707,
+      "candidate_side": "B",
+      "candidate_won": false,
+      "candidate_queen_death": 3,
+      "baseline_queen_death": 3,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 14559,
+        "B": 11640
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "A",
+        "end_reason": 1,
+        "a_dragons": 29,
+        "b_dragons": 17,
+        "a_length": 174,
+        "b_length": 113,
+        "events": 216192,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 14,
+        "b_longest": 11
+      },
+      "elapsed_seconds": 9.476
+    },
+    {
+      "map": "autarky",
+      "seed": 808,
+      "candidate_side": "A",
+      "candidate_won": false,
+      "candidate_queen_death": 3,
+      "baseline_queen_death": 3,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 13933,
+        "B": 12979
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 28,
+        "b_dragons": 21,
+        "a_length": 154,
+        "b_length": 128,
+        "events": 221846,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 11,
+        "b_longest": 16
+      },
+      "elapsed_seconds": 9.861
+    },
+    {
+      "map": "autarky",
+      "seed": 808,
+      "candidate_side": "B",
+      "candidate_won": false,
+      "candidate_queen_death": 3,
+      "baseline_queen_death": 3,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 13565,
+        "B": 13136
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "A",
+        "end_reason": 1,
+        "a_dragons": 27,
+        "b_dragons": 27,
+        "a_length": 169,
+        "b_length": 142,
+        "events": 220220,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 14,
+        "b_longest": 14
+      },
+      "elapsed_seconds": 9.719
+    },
+    {
+      "map": "default",
+      "seed": 707,
+      "candidate_side": "A",
+      "candidate_won": false,
+      "candidate_queen_death": 369,
+      "baseline_queen_death": 317,
+      "actions": {
+        "candidate": {
+          "donations": 2,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 3,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 9749,
+        "B": 9470
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 14,
+        "b_dragons": 20,
+        "a_length": 79,
+        "b_length": 144,
+        "events": 156546,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 15,
+        "b_longest": 22
+      },
+      "elapsed_seconds": 6.924
+    },
+    {
+      "map": "default",
+      "seed": 707,
+      "candidate_side": "B",
+      "candidate_won": true,
+      "candidate_queen_death": 312,
+      "baseline_queen_death": 246,
+      "actions": {
+        "candidate": {
+          "donations": 3,
+          "clearances": 1,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 11014,
+        "B": 9434
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 17,
+        "b_dragons": 15,
+        "a_length": 129,
+        "b_length": 92,
+        "events": 166480,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 14,
+        "b_longest": 15
+      },
+      "elapsed_seconds": 7.276
+    },
+    {
+      "map": "default",
+      "seed": 808,
+      "candidate_side": "A",
+      "candidate_won": false,
+      "candidate_queen_death": 225,
+      "baseline_queen_death": 455,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 14,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 13308,
+        "B": 9756
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 19,
+        "b_dragons": 8,
+        "a_length": 158,
+        "b_length": 57,
+        "events": 187458,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 15,
+        "b_longest": 21
+      },
+      "elapsed_seconds": 8.289
+    },
+    {
+      "map": "default",
+      "seed": 808,
+      "candidate_side": "B",
+      "candidate_won": true,
+      "candidate_queen_death": 303,
+      "baseline_queen_death": 359,
+      "actions": {
+        "candidate": {
+          "donations": 5,
+          "clearances": 3,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 2,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 8798,
+        "B": 13475
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 15,
+        "b_dragons": 15,
+        "a_length": 104,
+        "b_length": 103,
+        "events": 181167,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 12,
+        "b_longest": 16
+      },
+      "elapsed_seconds": 8.084
+    },
+    {
+      "map": "dilemma",
+      "seed": 707,
+      "candidate_side": "A",
+      "candidate_won": false,
+      "candidate_queen_death": 2,
+      "baseline_queen_death": 2,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 8350,
+        "B": 5438
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 16,
+        "b_dragons": 12,
+        "a_length": 87,
+        "b_length": 62,
+        "events": 117381,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 8,
+        "b_longest": 9
+      },
+      "elapsed_seconds": 5.967
+    },
+    {
+      "map": "dilemma",
+      "seed": 707,
+      "candidate_side": "B",
+      "candidate_won": true,
+      "candidate_queen_death": 2,
+      "baseline_queen_death": 2,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 8369,
+        "B": 5386
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 19,
+        "b_dragons": 8,
+        "a_length": 91,
+        "b_length": 52,
+        "events": 117116,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 9,
+        "b_longest": 10
+      },
+      "elapsed_seconds": 5.967
+    },
+    {
+      "map": "dilemma",
+      "seed": 808,
+      "candidate_side": "A",
+      "candidate_won": false,
+      "candidate_queen_death": 2,
+      "baseline_queen_death": 2,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 8799,
+        "B": 4507
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 19,
+        "b_dragons": 5,
+        "a_length": 110,
+        "b_length": 30,
+        "events": 113496,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 12,
+        "b_longest": 13
+      },
+      "elapsed_seconds": 5.713
+    },
+    {
+      "map": "dilemma",
+      "seed": 808,
+      "candidate_side": "B",
+      "candidate_won": true,
+      "candidate_queen_death": 2,
+      "baseline_queen_death": 2,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 8826,
+        "B": 4503
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 19,
+        "b_dragons": 4,
+        "a_length": 105,
+        "b_length": 33,
+        "events": 113695,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 9,
+        "b_longest": 10
+      },
+      "elapsed_seconds": 5.741
+    },
+    {
+      "map": "portals",
+      "seed": 707,
+      "candidate_side": "A",
+      "candidate_won": false,
+      "candidate_queen_death": 131,
+      "baseline_queen_death": 421,
+      "actions": {
+        "candidate": {
+          "donations": 3,
+          "clearances": 3,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 18,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 7384,
+        "B": 7853
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 3,
+        "b_dragons": 2,
+        "a_length": 37,
+        "b_length": 52,
+        "events": 136411,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 25,
+        "b_longest": 41
+      },
+      "elapsed_seconds": 6.802
+    },
+    {
+      "map": "portals",
+      "seed": 707,
+      "candidate_side": "B",
+      "candidate_won": false,
+      "candidate_queen_death": 353,
+      "baseline_queen_death": 154,
+      "actions": {
+        "candidate": {
+          "donations": 4,
+          "clearances": 12,
+          "body_releases": 1
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 8148,
+        "B": 6827
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "A",
+        "end_reason": 1,
+        "a_dragons": 5,
+        "b_dragons": 5,
+        "a_length": 53,
+        "b_length": 43,
+        "events": 134377,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 16,
+        "b_longest": 15
+      },
+      "elapsed_seconds": 6.452
+    },
+    {
+      "map": "portals",
+      "seed": 808,
+      "candidate_side": "A",
+      "candidate_won": false,
+      "candidate_queen_death": 250,
+      "baseline_queen_death": 266,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 5,
+          "body_releases": 1
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 7003,
+        "B": 7833
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 4,
+        "b_dragons": 5,
+        "a_length": 35,
+        "b_length": 42,
+        "events": 133213,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 16,
+        "b_longest": 17
+      },
+      "elapsed_seconds": 6.404
+    },
+    {
+      "map": "portals",
+      "seed": 808,
+      "candidate_side": "B",
+      "candidate_won": true,
+      "candidate_queen_death": null,
+      "baseline_queen_death": 145,
+      "actions": {
+        "candidate": {
+          "donations": 14,
+          "clearances": 17,
+          "body_releases": 1
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 7708,
+        "B": 6310
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 3,
+        "b_dragons": 1,
+        "a_length": 31,
+        "b_length": 35,
+        "events": 126579,
+        "a_queen": 0,
+        "b_queen": 35,
+        "a_longest": 15,
+        "b_longest": 35
+      },
+      "elapsed_seconds": 6.065
+    },
+    {
+      "map": "queen_of_spades",
+      "seed": 707,
+      "candidate_side": "A",
+      "candidate_won": false,
+      "candidate_queen_death": 345,
+      "baseline_queen_death": 370,
+      "actions": {
+        "candidate": {
+          "donations": 6,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 2,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 8957,
+        "B": 2219
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 11,
+        "b_dragons": 4,
+        "a_length": 84,
+        "b_length": 32,
+        "events": 91779,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 15,
+        "b_longest": 16
+      },
+      "elapsed_seconds": 4.289
+    },
+    {
+      "map": "queen_of_spades",
+      "seed": 707,
+      "candidate_side": "B",
+      "candidate_won": true,
+      "candidate_queen_death": 368,
+      "baseline_queen_death": 389,
+      "actions": {
+        "candidate": {
+          "donations": 2,
+          "clearances": 0,
+          "body_releases": 1
+        },
+        "baseline": {
+          "donations": 2,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 6827,
+        "B": 5042
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 10,
+        "b_dragons": 8,
+        "a_length": 63,
+        "b_length": 55,
+        "events": 97277,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 14,
+        "b_longest": 15
+      },
+      "elapsed_seconds": 4.435
+    },
+    {
+      "map": "queen_of_spades",
+      "seed": 808,
+      "candidate_side": "A",
+      "candidate_won": false,
+      "candidate_queen_death": 353,
+      "baseline_queen_death": 288,
+      "actions": {
+        "candidate": {
+          "donations": 4,
+          "clearances": 1,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 5387,
+        "B": 4279
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 7,
+        "b_dragons": 7,
+        "a_length": 46,
+        "b_length": 55,
+        "events": 79595,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 11,
+        "b_longest": 11
+      },
+      "elapsed_seconds": 3.406
+    },
+    {
+      "map": "queen_of_spades",
+      "seed": 808,
+      "candidate_side": "B",
+      "candidate_won": false,
+      "candidate_queen_death": 343,
+      "baseline_queen_death": 285,
+      "actions": {
+        "candidate": {
+          "donations": 1,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 8373,
+        "B": 1572
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "A",
+        "end_reason": 1,
+        "a_dragons": 18,
+        "b_dragons": 1,
+        "a_length": 117,
+        "b_length": 6,
+        "events": 81822,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 14,
+        "b_longest": 6
+      },
+      "elapsed_seconds": 3.575
+    },
+    {
+      "map": "schooltime",
+      "seed": 707,
+      "candidate_side": "A",
+      "candidate_won": false,
+      "candidate_queen_death": 199,
+      "baseline_queen_death": 389,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 1,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 13,
+          "clearances": 0,
+          "body_releases": 1
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 25016,
+        "B": 20172
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 40,
+        "b_dragons": 17,
+        "a_length": 399,
+        "b_length": 216,
+        "events": 369311,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 27,
+        "b_longest": 31
+      },
+      "elapsed_seconds": 17.937
+    },
+    {
+      "map": "schooltime",
+      "seed": 707,
+      "candidate_side": "B",
+      "candidate_won": true,
+      "candidate_queen_death": 148,
+      "baseline_queen_death": 142,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 24219,
+        "B": 22617
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 39,
+        "b_dragons": 33,
+        "a_length": 298,
+        "b_length": 346,
+        "events": 382511,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 23,
+        "b_longest": 31
+      },
+      "elapsed_seconds": 18.59
+    },
+    {
+      "map": "schooltime",
+      "seed": 808,
+      "candidate_side": "A",
+      "candidate_won": true,
+      "candidate_queen_death": 204,
+      "baseline_queen_death": 240,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 1,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 23533,
+        "B": 21453
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "A",
+        "end_reason": 1,
+        "a_dragons": 29,
+        "b_dragons": 31,
+        "a_length": 297,
+        "b_length": 287,
+        "events": 367457,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 45,
+        "b_longest": 27
+      },
+      "elapsed_seconds": 17.654
+    },
+    {
+      "map": "schooltime",
+      "seed": 808,
+      "candidate_side": "B",
+      "candidate_won": true,
+      "candidate_queen_death": 196,
+      "baseline_queen_death": 197,
+      "actions": {
+        "candidate": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        },
+        "baseline": {
+          "donations": 0,
+          "clearances": 0,
+          "body_releases": 0
+        }
+      },
+      "max_points": {
+        "A": 0,
+        "B": 0
+      },
+      "max_memory": {
+        "A": 0,
+        "B": 0
+      },
+      "turns": {
+        "A": 24368,
+        "B": 21121
+      },
+      "result": {
+        "rounds": 499,
+        "winner": "B",
+        "end_reason": 1,
+        "a_dragons": 34,
+        "b_dragons": 36,
+        "a_length": 311,
+        "b_length": 351,
+        "events": 371510,
+        "a_queen": 0,
+        "b_queen": 0,
+        "a_longest": 18,
+        "b_longest": 32
+      },
+      "elapsed_seconds": 18.127
+    }
+  ]
+}

@@ -18,7 +18,7 @@ void setup(int len=3,int r=100) {
     attackChildEnemy=-1;attackChildUntil=-1;attackSplitRadio=false;
     assemblyCenter=-1;spawnHome=-1;feedTargetSince=-1;rallyReports.clear();donorTravelOwner=-1;donorBestDistance=1000;donorProgress=-1;donorCooldown=-1;
     // Legacy longest-mode fixtures start after a certified queen death.
-    officialQueenId=-1;officialQueenDeath=0;servingDonor=-1;servingUntil=-1;previousEntry=-1;previousDirection=-1;queenBadEdges.clear();
+    officialQueenId=-1;officialQueenDeath=0;queenObservedRound=-1;queenGiftStamp=-100;servingDonor=-1;servingUntil=-1;previousEntry=-1;previousDirection=-1;queenBadEdges.clear();
     allyReports.clear();resources.clear();reservedFood.clear();retiredUntil=-1;
     receiveConfirmed=false;receiveStarted=-1;receiveMeeting=-1;receivePearls.clear();
     spawnOneRound.fill(-100);harvestRound.fill(-100);harvestCount.fill(0);
@@ -55,6 +55,57 @@ int execute(int argc,char**argv) {
         assert(second.visits[640]==0 && second.huntEnemy==-1);
         assert(second.warnings.empty() && !second.hasOutgoing);
         cout<<"per-dragon observation, navigation, combat and radio memory are isolated passed\n";
+    } else if(test=="v15_queen_middle") {
+        setup(11,400);id=0;
+        for(auto &t:tiles) t.id=-1;
+        body={{10,10},{10,9},{11,9},{11,10},{11,11},{10,11},{9,11},{9,10},{9,9},{8,9},{8,10}};
+        for(int k=0;k<11;k++) {int j=local(body[k]);tiles[j].id=0;tiles[j].team=team;tiles[j].head=k==0;}
+        assert(!queenTailReleaseSplit());assert(!reverseRescue({}));
+        assert(queenReleaseSplitSize()==4);
+        ActionPlan p;chooseFallback(p);assert(p.splitSize==4 && p.reason=="QUEEN_BODY_RELEASE");
+        units=unitLimit;assert(queenReleaseSplitSize()==0);
+        cout<<"queen middle-body exit releases minimum suffix and retains fixed head passed\n";
+    } else if(test=="v15_queen_signal") {
+        setup(4,200);turnsAlive=0;
+        inbox={from(0,ESCAPE,unsigned(code(tiles[24].p))|(4093u<<12),200)};
+        receiveRadio();assert(newbornQueenTailGift());
+        setup(4,200);turnsAlive=0;
+        inbox={from(0,ESCAPE,unsigned(code({11,10}))|(4093u<<12),200)};
+        receiveRadio();assert(!newbornQueenTailGift());
+        setup(4,200);turnsAlive=0;
+        inbox={from(0,ESCAPE,unsigned(code(tiles[24].p))|(4093u<<12),198)};
+        receiveRadio();assert(!newbornQueenTailGift());
+        cout<<"queen suffix sacrifice requires newborn, matching position and fresh request passed\n";
+    } else if(test=="v15_death_evidence") {
+        setup(3,100);officialQueenDeath=-1;
+        int q=local({11,10});tiles[q].id=0;tiles[q].team=team;tiles[q].head=true;
+        inbox.clear();receiveRadio();assert(queenObservedRound==100);
+        tiles[q].id=-1;tiles[q].head=false;roundNo=101;
+        receiveRadio();assert(officialQueenDeath==101);
+        setup(3,100);officialQueenDeath=-1;officialQueenId=0;queenObservedRound=99;queenObservedHead={13,10};
+        inbox.clear();receiveRadio();assert(officialQueenDeath<0); // A queen outside our full reachable region may live.
+        setup(3,450);officialQueenDeath=-1;
+        inbox={from(0,QUEEN,unsigned(code({11,10})),101)};
+        receiveRadio();assert(officialQueenDeath==101 && officialQueenId==0);
+        rememberAllyReport(77,8,{12,12},450);assert(feedTargetId==77 && eligibleDonor(id,7));
+        roundNo=451;inbox.clear();receiveRadio();assert(officialQueenDeath==101);
+        cout<<"visual death proof is conservative; old certificates persist for new descendants passed\n";
+    } else if(test=="v15_lane_clear") {
+        setup(3,100);officialQueenDeath=-1;ally(0,{{11,10},{12,10}},100);
+        he[3][4]="w";he[4][4]="w";rememberTerrain();
+        ActionPlan p;p.moves=legalMoves();assert(relieveQueenLane(p));
+        assert(p.sacrifice && p.reason=="QUEEN_CLEAR_LANE" && p.chosen.dir<0);
+        he[3][4]=".";rememberTerrain();p=ActionPlan{};p.moves=legalMoves();assert(!relieveQueenLane(p));
+        cout<<"short queen lane is cleared before endgame only when no usable exit exists passed\n";
+    } else if(test=="v15_pending_gift") {
+        setup(8,400);rememberAllyReport(id,length,tiles[24].p,400);
+        receiveDonor=20;receiveUntil=430;receiveConfirmed=true;receiveStarted=400;
+        receivePearls={code({14,10})};auto moves=legalMoves();Move chosen;string reason;
+        coordinateDonation(moves,chosen,reason);
+        assert(receiveDonor==20 && receivePearls.size()==1);
+        roundNo=431;rememberAllyReport(id,length,tiles[24].p,431);
+        coordinateDonation(moves,chosen,reason);assert(receiveDonor<0);
+        cout<<"confirmed out-of-view corpse pearls survive temporary detour and expire boundedly passed\n";
     } else if(test=="body_memory") {
         setup(8);
         auto old=body;syncBody();assert(body==old && local(body.back())<0);
@@ -164,7 +215,7 @@ int execute(int argc,char**argv) {
         setup(2,420);ally(77,{{12,10},{12,11},{12,12},{13,12},{13,11},{13,10},{13,9},{13,8}},420);
         ally(20,{{11,10},{11,11}},420);assert(donorHasTurn());
         allies[20].role=1;assert(!donorHasTurn());
-        allies[20].len=7;assert(donorHasTurn()); // Too long to donate to this queen.
+        allies[20].len=8;assert(donorHasTurn()); // Equal-length contenders do not donate to a higher ID.
         allies[20].len=2;
         servingDonor=id;servingUntil=426;assert(donorHasTurn());
         auto moves=legalMoves();Move chosen;string reason;
@@ -470,7 +521,8 @@ int execute(int argc,char**argv) {
         coordinateDonation(moves,chosen,reason);
         assert(receiveDonor==20 && !receiveConfirmed && reason=="RECEIVE_WAIT");
         received.clear();
-        for(int r=401;r<=408;r++) {
+        int expiry=receiveUntil;
+        for(int r=401;r<=expiry+1;r++) {
             roundNo=r;hasOutgoing=false;role=0;reason="EXPLORE";
             coordinateDonation(moves,chosen,reason);
             assert(reason!="RECEIVE_PEARLS");
