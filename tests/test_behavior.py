@@ -42,9 +42,6 @@ class Client:
             if line=='ENDTURN': break
             out.append(line)
         actions=[s for s in out if s.startswith(('MOVE ','SPLIT '))]
-        if not actions:
-            assert any('QUEEN_CLEAR_LANE' in line or 'QUEEN_TAIL_GIFT_2' in line for line in out),out
-            return 'NO_ACTION',out
         assert len(actions)==1
         if actions[0].startswith('MOVE '):
             steps=actions[0].split()[1]
@@ -94,8 +91,8 @@ c.close();p.close();print('emergency split: parent retained 5 and escaped throug
 # If all child escape moves would retain the blocking tail by eating, lose only child 2.
 child=[(6,4),(6,5)]
 a,out=once(child,owner=2,others=[(0,parent)],walls=walls,pearls={(6,3),(7,4),(5,4)})
-assert a=='NO_ACTION',(a,out)
-assert any('QUEEN_CLEAR_LANE' in s for s in out)
+assert a=='MOVE S',(a,out)
+assert any('SACRIFICE_TWO' in s for s in out)
 print('blocked release: only 2-segment child sacrifices itself')
 
 # No-exit fallback must never ram the ally head ahead.
@@ -157,10 +154,13 @@ for certified in (False,True):
     if certified:assert action=='MOVE W',(action,out)
 print('fallback gift: full bot refuses unknown queen state and sacrifices after a valid death certificate')
 
-# A wall/neck-only trap cannot be solved by abandoning the scoring head.
+# Devil replay R220: the retained queen must re-check a newly opened safe exit.
 c=Client(owner=0)
 b=[(10,10),(10,11),(11,11),(12,11),(12,10),(12,9)]
 walls={('H',10,10),('V',10,10),('V',11,10)}
 a,out=c.ask(frame(400,b,owner=0,walls=walls,echo=False))
-assert not a.startswith('SPLIT') and not any('REVERSE_RESCUE' in line for line in out),(a,out)
-c.close();print('queen wall/neck trap never transfers its fixed scoring identity to a child')
+assert a=='SPLIT 4' and any('REVERSE_RESCUE' in line for line in out),(a,out)
+walls.remove(('H',10,10))
+a,out=c.ask(frame(401,b[:2],owner=0,walls=walls,others=[(2,[(13,9),(12,9),(12,10),(12,11)])]))
+assert a=='MOVE N' and any('QUEEN_RECOVERED' in line for line in out),(a,out)
+c.close();print('retained queen: opened safe exit cancels the old discard latch')

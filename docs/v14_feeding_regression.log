@@ -1,4 +1,0 @@
-{'seed': 101, 'gifts': 6, 'queen_max': 17, 'queen_last': 17, 'queen_deaths': [], 'verified_gift_meals': 9, 'violations': []}
-{'seed': 202, 'gifts': 6, 'queen_max': 17, 'queen_last': 17, 'queen_deaths': [], 'verified_gift_meals': 9, 'violations': []}
-{'seed': 303, 'gifts': 6, 'queen_max': 19, 'queen_last': 19, 'queen_deaths': [], 'verified_gift_meals': 9, 'violations': []}
-PASS: multiple gifts recovered by the designated receiver, with no initial pearls and verified exclusive gift recovery

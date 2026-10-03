@@ -63,8 +63,6 @@ struct FeedingMemory {
     int feedTargetId=-1,feedTargetLength=0,feedTargetStamp=-100,queenLastSent=-100;
     Pos feedTargetHead;
     int officialQueenId=-1,officialQueenDeath=-1;
-    Pos queenObservedHead,queenDeathHead;
-    int queenObservedRound=-1,queenGiftStamp=-100;
     int servingDonor=-1,servingUntil=-1;
     int previousEntry=-1,previousDirection=-1;
     map<int,int> queenBadEdges;

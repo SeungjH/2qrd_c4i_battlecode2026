@@ -82,7 +82,6 @@ inline ActionPlan Bot::planAction() {
             reason="SACRIFICE_TWO";
         }
     }
-    if(!donated) relieveQueenLane(plan);
     return plan;
 }
 
@@ -93,12 +92,10 @@ inline void Bot::chooseFallback(ActionPlan &plan) {
     auto &reason=plan.reason;
     auto &splitSize=plan.splitSize;
     bool courier=plan.courier;
-    if(plan.sacrifice) return;
     if(chosen.dir<0) {
         bool canSplit=length>=4 && units<unitLimit;
-        int queenCut=canSplit?queenReleaseSplitSize():0;
-        if(queenCut>0) {
-            splitSize=queenCut;reason="QUEEN_BODY_RELEASE";
+        if(canSplit && queenTailReleaseSplit()) {
+            splitSize=2;reason="QUEEN_TAIL_RELEASE";
         } else if(canSplit && reverseRescue(moves)) {
             splitSize=length-2; reason="REVERSE_RESCUE";
         } else if(canSplit && pocketEscapeSplit(moves)) {
@@ -106,7 +103,7 @@ inline void Bot::chooseFallback(ActionPlan &plan) {
         } else if(moves.empty() && emergencyPortalDirection()>=0) {
             chosen.dir=emergencyPortalDirection(); chosen.portal=true;
             chosen.portalId=stoi(edge(24,chosen.dir)); reason="LAST_RESORT_PORTAL";
-        } else if(canSplit && !officialQueen() && ((moves.empty() && !protectedLong()) ||
+        } else if(canSplit && ((moves.empty() && !protectedLong()) ||
             ((moves.empty() || moves.front().exits==0) && cutCanReleaseParent()))) {
             splitSize=2; reason=cutCanReleaseParent()?"RESCUE_SPLIT_2":"LAST_RESORT_SPLIT_2";
         } else if(int enemy=tailAmbushEnemy(moves);!courier && enemy>=0) {
@@ -121,9 +118,7 @@ inline void Bot::chooseFallback(ActionPlan &plan) {
         } else if(!courier && role==0 && routineSplit(moves)) {
             splitSize=2; reason="SCOUT_SPLIT_2";
         } else if(!moves.empty()) {
-            auto safe=find_if(moves.begin(),moves.end(),[this](const Move &m){return safeMove(m);});
-            chosen=officialQueen() && safe!=moves.end()?*safe:moves.front();
-            if(officialQueen() && !chosen.sustainable) reason="QUEEN_EMERGENCY_STEP";
+            chosen=moves.front();
             if(chosen.uncertain && reason=="EXPLORE")
                 reason=portalDestination(code(tiles[24].p),chosen.dir,chosen.portalId)>=0?
                     "PORTAL_ROUTE":"PORTAL_SCOUT";
@@ -157,15 +152,10 @@ inline void Bot::executeAction(ActionPlan &plan) {
     auto &chosen=plan.chosen;
     auto &reason=plan.reason;
     int splitSize=plan.splitSize;
-    if(reason.rfind("DONATE_",0)==0 && donationTarget>=0)
-        sendPacket(OFFER,unsigned(donationTarget),roundNo,true);
-    if(plan.sacrifice) return; // Deliberate no-action death opens the lane without hitting an ally.
     if(splitSize) {
         if(protectedLong() && previousEntry>=0 && previousDirection>=0)
             queenBadEdges[previousEntry*4+previousDirection]=roundNo+80;
-        if(reason=="QUEEN_BODY_RELEASE") {
-            sendPacket(ESCAPE,unsigned(code(body.back()))|(4093u<<12),roundNo,true);
-        } else if(reason=="REVERSE_RESCUE" || reason=="POCKET_ESCAPE_TWO_RETAINED") {
+        if(reason=="REVERSE_RESCUE" || reason=="POCKET_ESCAPE_TWO_RETAINED") {
             discardTrappedHead=true;
             unsigned data=unsigned(code(body.back()))|(4095u<<12);
             sendPacket(ESCAPE,data,roundNo,true);

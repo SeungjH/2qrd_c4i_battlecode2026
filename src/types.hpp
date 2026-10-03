@@ -14,7 +14,7 @@ namespace battlecode {
 // Names stay inside this project namespace, not in the global namespace.
 using namespace std;
 
-inline constexpr char BotVersion[]="v15";
+inline constexpr char BotVersion[]="v14";
 
 namespace policy {
 inline constexpr int ExpansionEnd = 250;
@@ -49,7 +49,7 @@ struct ActionPlan {
     Move chosen;
     string reason;
     int splitSize=0;
-    bool courier=false,sacrifice=false;
+    bool courier=false;
 };
 
 } // namespace battlecode

@@ -15,7 +15,6 @@ bodies=[(0,[(10,12),(9,12),(8,12),(7,12),(6,12),(6,13),(7,13),(8,13)]),
         (0,[(15,15),(16,15),(16,16),(15,16)]),
         (0,[(6,9),(5,9)]),(0,[(12,16),(12,17)]),
         (0,[(17,12),(18,12),(18,13),(18,14),(17,14),(16,14)])]
-certified='--certified-fallback' in sys.argv
 fallback='--fallback' in sys.argv
 large='--large' in sys.argv  # Diagnostic only: crowded length-16 donor remains a known failing case.
 friendly=[b for t,b in bodies if t==0]
@@ -26,10 +25,6 @@ if large:
                 (12,9),(13,9),(14,9),(15,9),(15,8),(14,8),(13,8),(12,8)]]
 if fallback:
  friendly=[[(2,2),(1,2)],friendly[0][:4],*friendly[1:-1],friendly[-1][:2]]
-if certified:
- friendly=[[(10,10),(9,10),(8,10),(7,10)],
-           [(13,11),(14,11),(15,11),(15,12),(14,12),(13,12),(12,12),(12,11)],
-           [(17,10),(18,10)],[(11,15),(11,16)],[(7,14),(6,14)]]
 bodies=[]
 for k,b in enumerate(friendly):bodies.extend([(0,b),(1,[(25,24+k),(24,24+k)])])
 lines += [f'EDGE_COUNT {len(edges)}',*edges,f'DRAGON_COUNT {len(bodies)}']
@@ -68,14 +63,13 @@ for seed in (101,202,303):
    b.append(previous)
   observed[i]=b
 
-  if certified and i==0:return (b'MOVE W\nENDTURN\n' if seed==202 else b'MOVE E\nENDTURN\n') if rnd==0 else b'ENDTURN\n'
   if fallback and i<=1:return b'MOVE E\nENDTURN\n' if seed==202 else b'MOVE W\nENDTURN\n'
   if teams[i]=='B':return b'MOVE W\nENDTURN\n' if seed==202 else b'MOVE E\nENDTURN\n'
-  if i==(2 if fallback or certified else 0):lengths.append(int(re.search(rb'LENGTH (\d+)',block).group(1)))
+  if i==(2 if fallback else 0):lengths.append(int(re.search(rb'LENGTH (\d+)',block).group(1)))
   out=live[i].ask(re.sub(rb'^ROUND \d+',f'ROUND {min(rnd+350,499)}'.encode(),block))
   assert not live[i].error,live[i].error
   indicators[i]=next((s for s in out.decode().splitlines() if s.startswith('INDICATOR ')),'')
-  action=next((l for l in out.decode().splitlines() if l.startswith(('MOVE ','SPLIT '))),'')
+  action=next(l for l in out.decode().splitlines() if l.startswith(('MOVE ','SPLIT ')))
   if action.startswith('MOVE '):
    pos=head
    for d in action.split()[1]:
@@ -86,7 +80,7 @@ for seed in (101,202,303):
      recovered.append(i)
   return out
  def death(i,rnd,reason):
-  if i==(2 if fallback or certified else 0):queen_dead.append((rnd,reason))
+  if i==(2 if fallback else 0):queen_dead.append((rnd,reason))
   if 'DONATE_' in indicators.get(i,''):
    gifts.append((rnd,i,indicators[i]));receiver=int(re.search(r'peer=(\d+)',indicators[i]).group(1))
    for pos in observed.get(i,[])[::2]:drops[pos]=receiver
@@ -101,9 +95,7 @@ for seed in (101,202,303):
  row={'seed':seed,'gifts':len(gifts),'queen_max':max(lengths,default=0),'queen_last':lengths[-1] if lengths else 0,'queen_deaths':queen_dead,'verified_gift_meals':len(recovered),'violations':violations}
  results.append(row);print(row,flush=True)
  assert not queen_dead and not violations,row
- if certified:
-  assert len(gifts)>=2 and len(recovered)>=2 and lengths[-1]>=10,row
- elif fallback:
+ if fallback:
   assert not gifts and not recovered,row # An unseen death cannot authorize a fallback sacrifice.
  else:
   assert len(gifts)>=3 and len(recovered)>=(10 if large else 6),row

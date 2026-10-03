@@ -73,11 +73,8 @@ inline double Bot::separation(int target) {
 }
 
 inline bool Bot::obstructsQueen(int target) {
-    if(officialQueen() || target<0) return false;
-    int h=-1;
-    for(int j=0;j<49;j++) if(tiles[j].head && tiles[j].team==team && tiles[j].id>=0 && tiles[j].id<=1) h=j;
-    if(h<0 && roundNo>=280 && feedTargetId>=0 && feedTargetId!=id && feedTargetLength>=4) h=visibleHead(feedTargetId);
-    if(h<0) return false;
+    if(roundNo<280 || feedTargetId<0 || feedTargetId==id || feedTargetLength<4 || target<0) return false;
+    int h=visibleHead(feedTargetId);if(h<0) return false;
     int forward=nextTile(h,tiles[h].dir,false),exits=0,only=-1;
     for(int d=0;d<4;d++) {int n=nextTile(h,d,false);if(n>=0 && tiles[n].id<0) {exits++;only=n;}}
     return target==forward || (exits==1 && target==only);
@@ -87,13 +84,12 @@ inline bool Bot::obstructsQueen(int target) {
 // Foreign bodies stay fixed in this short prediction; unknown terrain ends the check.
 inline bool Bot::longContinuation(const vector<int>& trail,const array<bool,4096>& others,
                       array<bool,49> eaten,int depth,int &budget) {
-    if(depth==0) return true;
-    if(--budget<=0) return !officialQueen();
+    if(depth==0 || --budget<=0) return true;
     int at=trail.front();
     for(int d=0;d<4;d++) {
         if(portalAt[at][d]>=0 || avoided(at,d)) continue;
         int to=terrain[at][d];
-        if(to==-2) {if(!officialQueen()) return true;continue;}
+        if(to==-2) return true;
         if(to<0 || others[to] || find(trail.begin(),trail.end(),to)!=trail.end()) continue;
         auto next=trail; next.insert(next.begin(),to);
         int j=local(decodePos(to));bool food=j>=0 && tiles[j].pearl && !eaten[j];
@@ -114,7 +110,7 @@ inline bool Bot::sustainableLongMove(int to) {
     array<bool,49> eaten{};
     if(tiles[to].pearl) eaten[to]=true; else trail.pop_back();
     int budget=768;
-    return longContinuation(trail,others,eaten,officialQueen()?min(12,max(6,length+2)):6,budget);
+    return longContinuation(trail,others,eaten,6,budget);
 }
 
 inline Move Bot::evaluate(int d,int to) {
@@ -169,12 +165,6 @@ inline Move Bot::evaluate(int d,int to) {
         if(lastSeen[code(p)]<0) novelty++;
     }
     s+=0.22*novelty;
-    if(officialQueen()) {
-        int clearance=3;
-        for(int j=0;j<49;j++) for(int e=0;e<4;e++) if(edge(j,e)=="w")
-            clearance=min(clearance,distance(tiles[to].p,tiles[j].p));
-        s+=clearance*12;
-    }
     s+=tiles[to].pearl*(roundNo<policy::ExpansionEnd?18:24);
     if(tiles[to].pearl && reservedPearl(code(tiles[to].p))) s-=100;
     // Distances respect walls and body occupancy, unlike straight-line pearl attraction.
@@ -240,13 +230,6 @@ inline vector<Move> Bot::legalMoves() {
             Move m=distantPortal(d);
             if(m.score>-1e19) out.push_back(m);
         }
-    }
-    if(officialQueen()) {
-        bool viable=any_of(out.begin(),out.end(),[](const Move &m){return m.sustainable;});
-        bool wide=any_of(out.begin(),out.end(),[this](const Move &m){return m.sustainable && m.risk<18 && m.exits>0 && terrainDegree(code(tiles[m.to].p))>=3;});
-        out.erase(remove_if(out.begin(),out.end(),[&](const Move &m){
-            return (viable && !m.sustainable) || (wide && terrainDegree(code(tiles[m.to].p))<3);
-        }),out.end());
     }
     stable_sort(out.begin(),out.end(),[](const Move&a,const Move&b){return a.score>b.score;});
     return out;
