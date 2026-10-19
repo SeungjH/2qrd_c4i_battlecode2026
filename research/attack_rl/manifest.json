@@ -1,0 +1,41 @@
+{
+  "baseline_commit": "36ba1a67f63ece95075bdecb409b70db25684b59",
+  "archive": "hunt_entry_v1",
+  "policy_checkpoint": 10220,
+  "policy_sha256": "763a344a2737ce3e2104b715d7a26c555d5bb1d2e6e6cacd3f33c0e0e25ca65f",
+  "network": {
+    "inputs": 522,
+    "hidden": 32,
+    "outputs": 9,
+    "allowed_rl_actions": [
+      "N",
+      "E",
+      "S",
+      "W"
+    ]
+  },
+  "validation_games": 192,
+  "official_version_promoted": false,
+  "later_production_training_final_result": "unverified; not included",
+  "source_sha256": {
+    "candidate/main.cpp": "2f2b0aa69c2551ac5f35d9458868ee6119b21a4965f8b86998ca2df1379f16c5",
+    "candidate/src/Agent.md": "85ed1b7719e03d549a015ffb7c42012e8219339f88144ae45067644414c60213",
+    "candidate/src/attack_rl.hpp": "2bc670118dc07fc29e3471eda5632a6bdfbea19bf413690fa1c3bd9361889e84",
+    "candidate/src/bot.hpp": "56316c99c92e792b7866fbbcfb98aea0db0c11196bf8ec8806646dea0cd0800b",
+    "candidate/src/combat.hpp": "454cf186f903b4a7d757d5221cee8fb68f43ce7dc1fd714cb4f195b0db1caaab",
+    "candidate/src/communication.hpp": "621497c4c5f1e0a4d23b07bd6e69006a1695858198dd29685860d73262d1efac",
+    "candidate/src/controller.hpp": "ae403e85cc65ae302cfd88f1fae344279aae6fb2c4be900281c403f0a6c909dd",
+    "candidate/src/entry.cpp": "680e0e1b1b80559d97f1ce41386ae375efac56ba64693e63d814fbbbd66a70eb",
+    "candidate/src/feeding.hpp": "55fc0944f54d54f4a58eda0b392b270775d95fb61ae47cdc2c2256695fdc4b33",
+    "candidate/src/geometry.hpp": "d411bec2b2c4705aef0f44603fb1842abe6c05b8a9a6fad84979244570c9a67f",
+    "candidate/src/movement.hpp": "96b58601bf97488ce7baeab12bc731dde73c4d462f417c5d21b5c686d571a6de",
+    "candidate/src/navigation.hpp": "30e48b009eb83608008bcafb56482c7e4df88f449ef9631d4b4e6ef35ebc6a78",
+    "candidate/src/protocol.hpp": "51c20a17c67d9798766af891adac960329fb6a91a00bef8aed62347c204dee89",
+    "candidate/src/rl_weights.hpp": "763a344a2737ce3e2104b715d7a26c555d5bb1d2e6e6cacd3f33c0e0e25ca65f",
+    "candidate/src/state.hpp": "84cdcc6d7e6babb0d260496ef1c8d41b64128d5b87219dc8444ef94be3d11c24",
+    "candidate/src/survival.hpp": "8e6aeb284b7382bf58673276d0ad7787982e48dda3bf43dfb87a6d6f4a7029a1",
+    "candidate/src/turn.hpp": "cdb1cf3386b9b38d44bb98a27814cba55e63bda659fc542d6e52e8331b692a46",
+    "candidate/src/types.hpp": "64e61040387c59df89a1f16c64e48b5929ffd032ac2825f6b36c08ae05d84dfe",
+    "candidate/src/world.hpp": "8aab3d020754102ee3b95e0791ee9a0bbbc2538fe49f81955c998b28b0500a97"
+  }
+}

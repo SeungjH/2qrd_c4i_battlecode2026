@@ -1,0 +1,288 @@
+{
+  "phase": "completed",
+  "official_promoted": false,
+  "vs_original": {
+    "phase": "completed",
+    "games": 60,
+    "total": 60,
+    "wins": 31,
+    "losses": 29,
+    "draws": 0,
+    "official_promoted": false,
+    "candidate": {
+      "queen_survivals": 9,
+      "rl_moves": 21989,
+      "hunt_moves": 3193,
+      "rl_changed_moves": 10482,
+      "mean_longest": 17.216666666666665,
+      "mean_final_length": 89.7,
+      "mean_unexpected_loss_rate": 0.6979808291989935,
+      "hunt_starts": 7806,
+      "hunt_ends": {
+        "danger": 1827,
+        "unreachable": 2851,
+        "team_lost": 997,
+        "target_lost": 1117,
+        "stalled": 196,
+        "ineligible": 136
+      },
+      "rl_runs": 8158,
+      "single_turn_rl_runs": 2933
+    },
+    "baseline": {
+      "queen_survivals": 8,
+      "rl_moves": 0,
+      "hunt_moves": 784,
+      "rl_changed_moves": 0,
+      "mean_longest": 16.566666666666666,
+      "mean_final_length": 79.01666666666667,
+      "mean_unexpected_loss_rate": 0.7274682413461895
+    },
+    "per_map": {
+      "autarky": {
+        "games": 10,
+        "wins": 6,
+        "draws": 0
+      },
+      "devil": {
+        "games": 10,
+        "wins": 5,
+        "draws": 0
+      },
+      "dilemma": {
+        "games": 10,
+        "wins": 4,
+        "draws": 0
+      },
+      "portals": {
+        "games": 10,
+        "wins": 7,
+        "draws": 0
+      },
+      "trauma": {
+        "games": 10,
+        "wins": 5,
+        "draws": 0
+      },
+      "trophy": {
+        "games": 10,
+        "wins": 4,
+        "draws": 0
+      }
+    },
+    "elapsed_seconds": 275.5883498999756
+  },
+  "vs_old_rl": {
+    "phase": "completed",
+    "games": 60,
+    "total": 60,
+    "wins": 35,
+    "losses": 25,
+    "draws": 0,
+    "official_promoted": false,
+    "candidate": {
+      "queen_survivals": 9,
+      "rl_moves": 21314,
+      "hunt_moves": 3057,
+      "rl_changed_moves": 10052,
+      "mean_longest": 17.983333333333334,
+      "mean_final_length": 93.06666666666666,
+      "mean_unexpected_loss_rate": 0.6957836888692227,
+      "hunt_starts": 7437,
+      "hunt_ends": {
+        "danger": 1673,
+        "unreachable": 2725,
+        "team_lost": 975,
+        "target_lost": 1057,
+        "stalled": 196,
+        "ineligible": 121
+      },
+      "rl_runs": 7750,
+      "single_turn_rl_runs": 2777
+    },
+    "baseline": {
+      "queen_survivals": 8,
+      "rl_moves": 686,
+      "hunt_moves": 13,
+      "rl_changed_moves": 336,
+      "mean_longest": 16.433333333333334,
+      "mean_final_length": 74.85,
+      "mean_unexpected_loss_rate": 0.7371051187208862
+    },
+    "per_map": {
+      "autarky": {
+        "games": 10,
+        "wins": 5,
+        "draws": 0
+      },
+      "devil": {
+        "games": 10,
+        "wins": 6,
+        "draws": 0
+      },
+      "dilemma": {
+        "games": 10,
+        "wins": 4,
+        "draws": 0
+      },
+      "portals": {
+        "games": 10,
+        "wins": 6,
+        "draws": 0
+      },
+      "trauma": {
+        "games": 10,
+        "wins": 5,
+        "draws": 0
+      },
+      "trophy": {
+        "games": 10,
+        "wins": 9,
+        "draws": 0
+      }
+    },
+    "elapsed_seconds": 281.01813789992593
+  },
+  "farm": {
+    "phase": "completed",
+    "games": 36,
+    "total": 36,
+    "wins": 1,
+    "losses": 35,
+    "draws": 0,
+    "official_promoted": false,
+    "candidate": {
+      "queen_survivals": 1,
+      "rl_moves": 1084,
+      "hunt_moves": 162,
+      "rl_changed_moves": 499,
+      "mean_longest": 5.361111111111111,
+      "mean_final_length": 11.583333333333334,
+      "mean_unexpected_loss_rate": 0.9593209463386382,
+      "hunt_starts": 451,
+      "hunt_ends": {
+        "danger": 63,
+        "target_lost": 55,
+        "unreachable": 131,
+        "team_lost": 50,
+        "ineligible": 19,
+        "stalled": 4
+      },
+      "rl_runs": 469,
+      "single_turn_rl_runs": 208
+    },
+    "baseline": {
+      "queen_survivals": 9,
+      "rl_moves": 0,
+      "hunt_moves": 0,
+      "rl_changed_moves": 0,
+      "mean_longest": 15.75,
+      "mean_final_length": 104.08333333333333,
+      "mean_unexpected_loss_rate": 0.6428111731857402
+    },
+    "per_map": {
+      "autarky": {
+        "games": 6,
+        "wins": 0,
+        "draws": 0
+      },
+      "devil": {
+        "games": 6,
+        "wins": 0,
+        "draws": 0
+      },
+      "dilemma": {
+        "games": 6,
+        "wins": 0,
+        "draws": 0
+      },
+      "portals": {
+        "games": 6,
+        "wins": 0,
+        "draws": 0
+      },
+      "trauma": {
+        "games": 6,
+        "wins": 1,
+        "draws": 0
+      },
+      "trophy": {
+        "games": 6,
+        "wins": 0,
+        "draws": 0
+      }
+    },
+    "elapsed_seconds": 98.04610599996522
+  },
+  "arch4": {
+    "phase": "completed",
+    "games": 36,
+    "total": 36,
+    "wins": 1,
+    "losses": 35,
+    "draws": 0,
+    "official_promoted": false,
+    "candidate": {
+      "queen_survivals": 1,
+      "rl_moves": 1078,
+      "hunt_moves": 181,
+      "rl_changed_moves": 531,
+      "mean_longest": 4.138888888888889,
+      "mean_final_length": 9.833333333333334,
+      "mean_unexpected_loss_rate": 0.9708197591619709,
+      "hunt_starts": 459,
+      "hunt_ends": {
+        "team_lost": 39,
+        "unreachable": 122,
+        "danger": 64,
+        "target_lost": 70,
+        "ineligible": 24,
+        "stalled": 3
+      },
+      "rl_runs": 472,
+      "single_turn_rl_runs": 212
+    },
+    "baseline": {
+      "queen_survivals": 7,
+      "rl_moves": 0,
+      "hunt_moves": 0,
+      "rl_changed_moves": 0,
+      "mean_longest": 15.944444444444445,
+      "mean_final_length": 114.80555555555556,
+      "mean_unexpected_loss_rate": 0.676952895557482
+    },
+    "per_map": {
+      "autarky": {
+        "games": 6,
+        "wins": 0,
+        "draws": 0
+      },
+      "devil": {
+        "games": 6,
+        "wins": 0,
+        "draws": 0
+      },
+      "dilemma": {
+        "games": 6,
+        "wins": 0,
+        "draws": 0
+      },
+      "portals": {
+        "games": 6,
+        "wins": 0,
+        "draws": 0
+      },
+      "trauma": {
+        "games": 6,
+        "wins": 1,
+        "draws": 0
+      },
+      "trophy": {
+        "games": 6,
+        "wins": 0,
+        "draws": 0
+      }
+    },
+    "elapsed_seconds": 103.82958180014975
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "vs_original": {
+    "gains": 6,
+    "losses": 5,
+    "neutral": 19,
+    "two_sided_p": 1
+  },
+  "vs_old_rl": {
+    "gains": 11,
+    "losses": 6,
+    "neutral": 13,
+    "two_sided_p": 0.332305908203125
+  },
+  "farm": {
+    "gains": 1,
+    "losses": 0,
+    "same": 35
+  },
+  "arch4": {
+    "gains": 0,
+    "losses": 0,
+    "same": 36
+  }
+}
