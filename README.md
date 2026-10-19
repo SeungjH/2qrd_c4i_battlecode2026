@@ -1,4 +1,5 @@
 # Explorer v14 — C++ 휴리스틱 봇
+This repo was created to host our team's bot for the UNSW Battlecode2026 competition. The READMEs are written in Korean. 
 
 **RL 실험 기록:** [공격 전용 C++ 봇·내장 모델·대전 결과](research/attack_rl/README.md). 원본 v14 대비 60경기 31승 29패로, 우위가 입증되지 않아 공식 버전은 v14로 유지했습니다.
 
